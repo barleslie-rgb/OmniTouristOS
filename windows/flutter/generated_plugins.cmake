@@ -3,8 +3,14 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  app_links
   audioplayers_windows
+  file_selector_windows
+  flutter_tts
+  gal
   geolocator_windows
+  local_auth_windows
+  share_plus
   speech_to_text_windows
   url_launcher_windows
 )

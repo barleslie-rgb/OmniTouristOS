@@ -9,19 +9,42 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  webview_flutter: ^4.7.0
   file_picker: 8.3.7
   audioplayers: ^6.0.0
-  geolocator: ^11.1.0
-  url_launcher: ^6.3.0
+  geolocator: ^14.0.2
+  url_launcher: ^6.3.2
   flutter_markdown: ^0.7.3+1
   http: ^1.2.0
   speech_to_text: ^7.0.0
+  http_parser: ^4.0.2
+  flutter_tts: ^4.2.2
+  share_plus: ^10.1.4
+  shared_preferences: ^2.5.5
+  image_picker: ^1.2.3
+  intl: ^0.20.3
+  supabase_flutter: ^2.17.2
+  geocoding: ^5.0.0
+  pdf: ^3.10.8
+  path_provider: ^2.1.2
+  local_auth: ^2.2.0
+  image: ^4.2.0
+  gal: ^2.3.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.1
+
+flutter_native_splash:
+  color: "#0F172A"
+  image: "assets/icon/app_icon.png"
+  android_12:
+    image: "assets/icon/app_icon.png"
+    icon_background_color: "#0F172A"
+  fullscreen: true
 
 flutter_launcher_icons:
   android: "launcher_icon"
@@ -33,3 +56,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.png
+    - assets/images/dashboard_fort.png
