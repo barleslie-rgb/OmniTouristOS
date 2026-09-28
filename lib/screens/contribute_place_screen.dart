@@ -1,9 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
+import '../widgets/metallic_embossed_button.dart';
 
 class ContributePlaceScreen extends StatefulWidget {
   final String activeCity;
@@ -34,6 +38,12 @@ class _ContributePlaceScreenState extends State<ContributePlaceScreen> {
 
   double? _detectedLat;
   double? _detectedLon;
+
+  File? _pickedImage;
+  final ImagePicker _picker = ImagePicker();
+
+  static const String _cloudinaryCloudName = "punxig5z";
+  static const String _cloudinaryPreset = "omni_gems_preset";
 
   final List<String> _availableTags = [
     "🕒 24 Hours",
@@ -79,6 +89,44 @@ class _ContributePlaceScreenState extends State<ContributePlaceScreen> {
     _tipCtrl.dispose();
     _contributorCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? file = await _picker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (file != null) {
+        setState(() => _pickedImage = File(file.path));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error selecting photo: $e")),
+        );
+      }
+    }
+  }
+
+  Future<String?> _uploadToCloudinary(File imageFile) async {
+    try {
+      final uri = Uri.parse("https://api.cloudinary.com/v1_1/$_cloudinaryCloudName/image/upload");
+      final request = http.MultipartRequest("POST", uri);
+      request.fields["upload_preset"] = _cloudinaryPreset;
+      request.files.add(await http.MultipartFile.fromPath("file", imageFile.path));
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 25));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data["secure_url"] as String?;
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> _detectCurrentSpotLocation() async {
@@ -160,14 +208,94 @@ class _ContributePlaceScreenState extends State<ContributePlaceScreen> {
     }
   }
 
+  // Pre-submission duplicate check against existing city records
+  Future<Map<String, dynamic>?> _checkExistingDuplicate(String name, String city) async {
+    try {
+      await SupabaseService.ensureInitialized();
+      final normalized = name.toLowerCase().trim();
+      final res = await SupabaseService.client
+          .from('community_places')
+          .select()
+          .ilike('city', '%$city%');
+
+      final list = List<Map<String, dynamic>>.from(res);
+      for (var p in list) {
+        final existing = (p['name'] ?? '').toString().toLowerCase().trim();
+        if (existing == normalized ||
+            (existing.contains(normalized) && normalized.length > 5) ||
+            (normalized.contains(existing) && existing.length > 5)) {
+          return p;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> _submitGem() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final targetName = _nameCtrl.text.trim();
     setState(() => _isSubmitting = true);
+
+    // Duplicate verification warning
+    final duplicateMatch = await _checkExistingDuplicate(targetName, _currentCity);
+    if (duplicateMatch != null && mounted) {
+      final shouldContinue = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: const [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 24),
+              SizedBox(width: 8),
+              Text("Place Already Exists", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+            ],
+          ),
+          content: Text(
+            "'${duplicateMatch['name']}' is already listed in $_currentCity.\n\n"
+            "Would you like to continue submitting your listing or cancel to avoid duplicates?",
+            style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancel & View Existing"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Submit Anyway", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldContinue != true) {
+        setState(() => _isSubmitting = false);
+        return;
+      }
+    }
+
+    String? imageUrl;
+    if (_pickedImage != null) {
+      imageUrl = await _uploadToCloudinary(_pickedImage!);
+    }
+
+    // Resolve creator ID
+    String creatorId = "anonymous";
+    try {
+      final supaUser = Supabase.instance.client.auth.currentUser;
+      if (supaUser != null) {
+        creatorId = supaUser.id;
+      }
+    } catch (_) {}
 
     final newPlace = {
       "city": _currentCity,
-      "name": _nameCtrl.text.trim(),
+      "name": targetName,
       "category": _selectedCategory,
       "address": _addressCtrl.text.trim(),
       "contact_phone": _phoneCtrl.text.trim(),
@@ -176,6 +304,8 @@ class _ContributePlaceScreenState extends State<ContributePlaceScreen> {
       "endorsement_tags": _selectedTags.toList(),
       "latitude": _detectedLat,
       "longitude": _detectedLon,
+      "image_url": imageUrl,
+      "created_by_user_id": creatorId,
       "contributor_name": _contributorCtrl.text.trim().isNotEmpty
           ? _contributorCtrl.text.trim()
           : "Local Explorer",
@@ -207,7 +337,8 @@ class _ContributePlaceScreenState extends State<ContributePlaceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final systemNavInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -224,7 +355,7 @@ class _ContributePlaceScreenState extends State<ContributePlaceScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(18, 16, 18, bottomInset + 24),
+        padding: EdgeInsets.fromLTRB(18, 16, 18, bottomInset > 0 ? bottomInset + 20 : systemNavInset + 28),
         child: Form(
           key: _formKey,
           child: Column(
@@ -253,21 +384,90 @@ class _ContributePlaceScreenState extends State<ContributePlaceScreen> {
 
               const SizedBox(height: 16),
 
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF2563EB),
-                  side: const BorderSide(color: Color(0xFF2563EB)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              // Storefront / Food Photo Uploader Card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Storefront / Food Photo (Optional)",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)),
+                    ),
+                    const SizedBox(height: 10),
+                    if (_pickedImage != null) ...[
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(_pickedImage!, height: 150, width: double.infinity, fit: BoxFit.cover),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: CircleAvatar(
+                              backgroundColor: Colors.black54,
+                              radius: 16,
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(Icons.close, color: Colors.white, size: 16),
+                                onPressed: () => setState(() => _pickedImage = null),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF2563EB),
+                              side: const BorderSide(color: Color(0xFF2563EB)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.camera_alt_rounded, size: 16),
+                            label: const Text("Camera", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            onPressed: () => _pickImage(ImageSource.camera),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF334155),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.photo_library_rounded, size: 16),
+                            label: const Text("Gallery", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            onPressed: () => _pickImage(ImageSource.gallery),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              MetallicEmbossedButton(
+                label: _isLocating ? "FETCHING SPOT GPS..." : "AUTO-DETECT SPOT VIA GPS",
+                icon: Icons.my_location_rounded,
+                variant: MetallicVariant.titaniumSilver,
+                height: 44,
+                fontSize: 12.5,
+                isFullWidth: true,
                 onPressed: _isLocating ? null : _detectCurrentSpotLocation,
-                icon: _isLocating
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2563EB)))
-                    : const Icon(Icons.my_location_rounded, size: 18),
-                label: Text(
-                  _isLocating ? "Fetching Exact Coordinates..." : "Auto-Detect My Current Spot (GPS)",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
               ),
 
               const SizedBox(height: 16),
@@ -277,7 +477,7 @@ class _ContributePlaceScreenState extends State<ContributePlaceScreen> {
               TextFormField(
                 controller: _nameCtrl,
                 decoration: InputDecoration(
-                  hintText: "e.g. Sanjivani 24/7 Medical / Royal Chinese / Pop Tate's",
+                  hintText: "e.g. Sanjivani 24/7 Medical / Royal Chinese",
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -412,24 +612,14 @@ class _ContributePlaceScreenState extends State<ContributePlaceScreen> {
 
               const SizedBox(height: 24),
 
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: _isSubmitting ? null : _submitGem,
-                  icon: _isSubmitting
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.check_circle_rounded, size: 20),
-                  label: Text(
-                    _isSubmitting ? "Publishing Gem..." : "Publish to Community Directory",
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
-                  ),
-                ),
+              MetallicEmbossedButton(
+                label: _isSubmitting ? "PUBLISHING TO DIRECTORY..." : "PUBLISH TO COMMUNITY DIRECTORY",
+                icon: Icons.check_circle_rounded,
+                variant: MetallicVariant.emeraldGreen,
+                height: 48,
+                fontSize: 13.5,
+                isFullWidth: true,
+                onPressed: _isSubmitting ? null : _submitGem,
               ),
             ],
           ),

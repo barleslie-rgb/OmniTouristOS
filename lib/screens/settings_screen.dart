@@ -427,252 +427,308 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final topInset = MediaQuery.of(context).padding.top;
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final activeLangObj = _availableLanguages.firstWhere(
       (l) => l["name"] == _activeLanguage,
       orElse: () => {"name": "English", "native": "English", "flag": "🇬🇧"},
     );
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A), size: 24),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          _t("title"),
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: Color(0xFF0F172A)),
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
       ),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 24),
-        children: [
-          // 1. INTERFACE & THEME
-          _buildSectionHeader(_t("sec_general")),
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.grey.shade200)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        body: Column(
+          children: [
+            // Borderless Header ($y = 0$)
+            Container(
+              padding: EdgeInsets.fromLTRB(16, topInset + 6, 16, 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                border: Border(bottom: BorderSide(color: const Color(0xFFE2E8F0).withOpacity(0.6), width: 0.6)),
+              ),
+              child: Row(
                 children: [
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(_t("dark_mode"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    subtitle: Text(_t("dark_mode_sub"), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                    value: _darkMode,
-                    activeColor: const Color(0xFF2563EB),
-                    onChanged: _toggleDarkMode,
-                  ),
-                  const Divider(height: 20),
                   InkWell(
-                    onTap: _showLanguagePickerModal,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(_t("app_lang"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                const SizedBox(height: 2),
-                                Text(_t("app_lang_sub"), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFBFDBFE)),
-                            ),
+                    onTap: () => Navigator.of(context).pop(),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 0.6),
+                      ),
+                      child: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A), size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("PREFERENCES & CONFIG", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 0.5)),
+                        Text(_t("title"), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, bottomInset > 0 ? bottomInset + 16 : 24),
+                children: [
+                  // 1. INTERFACE & THEME
+                  _buildSectionHeader(_t("sec_general")),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0), width: 0.6),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(_t("dark_mode"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A))),
+                          subtitle: Text(_t("dark_mode_sub"), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                          value: _darkMode,
+                          activeColor: const Color(0xFF2563EB),
+                          onChanged: _toggleDarkMode,
+                        ),
+                        const Divider(height: 16),
+                        InkWell(
+                          onTap: _showLanguagePickerModal,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Row(
                               children: [
-                                Text(activeLangObj["flag"]!, style: const TextStyle(fontSize: 16)),
-                                const SizedBox(width: 6),
-                                Text(
-                                  activeLangObj["name"]!,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB), fontSize: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(_t("app_lang"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A))),
+                                      const SizedBox(height: 2),
+                                      Text(_t("app_lang_sub"), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                    ],
+                                  ),
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF2563EB), size: 16),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFFBFDBFE), width: 0.6),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Text(activeLangObj["flag"]!, style: const TextStyle(fontSize: 15)),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        activeLangObj["name"]!,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E40AF), fontSize: 12),
+                                      ),
+                                      const SizedBox(width: 2),
+                                      const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF2563EB), size: 16),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
+                  const SizedBox(height: 18),
 
-          // 2. TRAVEL VAULT & SECURITY
-          _buildSectionHeader(_t("sec_vault")),
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.grey.shade200)),
-            child: Column(
-              children: [
-                SwitchListTile(
-                  title: Text(_t("biometric_title"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: Text(
-                    _canCheckBiometrics ? _t("biometric_sub") : "Biometrics unavailable on device",
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                  value: _biometricEnabled && _canCheckBiometrics,
-                  activeColor: const Color(0xFF2563EB),
-                  onChanged: _canCheckBiometrics ? _toggleBiometrics : null,
-                ),
-                const Divider(height: 1),
-                SwitchListTile(
-                  title: Text(_t("mask_title"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: Text(_t("mask_sub"), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                  value: _maskSensitiveNumbers,
-                  activeColor: const Color(0xFF2563EB),
-                  onChanged: _toggleMasking,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          // 3. STORAGE & CACHE HYGIENE
-          _buildSectionHeader(_t("sec_storage")),
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.grey.shade200)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(_t("cache_label"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          const SizedBox(height: 2),
-                          const Text("Temporary rendered previews & cached images", style: TextStyle(fontSize: 11, color: Colors.grey)),
-                        ],
-                      ),
-                      Text(
-                        "${_cacheSizeMb.toStringAsFixed(2)} MB",
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF2563EB)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFDC2626),
-                        side: const BorderSide(color: Color(0xFFDC2626)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: _isClearingCache ? null : _clearTemporaryCache,
-                      icon: _isClearingCache
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFDC2626)))
-                          : const Icon(Icons.delete_sweep_rounded, size: 18),
-                      label: Text(_t("clear_cache"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  // 2. TRAVEL VAULT & SECURITY
+                  _buildSectionHeader(_t("sec_vault")),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0), width: 0.6),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(_t("biometric_title"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A))),
+                          subtitle: Text(
+                            _canCheckBiometrics ? _t("biometric_sub") : "Biometrics unavailable on device",
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          ),
+                          value: _biometricEnabled && _canCheckBiometrics,
+                          activeColor: const Color(0xFF2563EB),
+                          onChanged: _canCheckBiometrics ? _toggleBiometrics : null,
+                        ),
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(_t("mask_title"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A))),
+                          subtitle: Text(_t("mask_sub"), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                          value: _maskSensitiveNumbers,
+                          activeColor: const Color(0xFF2563EB),
+                          onChanged: _toggleMasking,
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
+                  const SizedBox(height: 18),
 
-          // 4. CLOUD & RAILWAY SYNC
-          _buildSectionHeader(_t("sec_backend")),
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.grey.shade200)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.cloud_sync_rounded, color: Color(0xFF2563EB), size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  // 3. STORAGE & CACHE HYGIENE
+                  _buildSectionHeader(_t("sec_storage")),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0), width: 0.6),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(_t("cloud_service_label"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
-                            const SizedBox(height: 2),
-                            Text(_t("cloud_service_sub"), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _pingStatusColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _pingStatusColor.withOpacity(0.25)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(width: 6, height: 6, decoration: BoxDecoration(color: _pingStatusColor, shape: BoxShape.circle)),
-                            const SizedBox(width: 5),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(_t("cache_label"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A))),
+                                const SizedBox(height: 2),
+                                const Text("Temporary previews & cached maps", style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                              ],
+                            ),
                             Text(
-                              _pingLatencyMs != null ? "$_pingStatus • ${_pingLatencyMs}ms" : _pingStatus,
-                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: _pingStatusColor),
+                              "${_cacheSizeMb.toStringAsFixed(2)} MB",
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF2563EB)),
                             ),
                           ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 46,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFDC2626),
+                              side: const BorderSide(color: Color(0xFFFCA5A5), width: 0.8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            onPressed: _isClearingCache ? null : _clearTemporaryCache,
+                            icon: _isClearingCache
+                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFDC2626)))
+                                : const Icon(Icons.delete_sweep_rounded, size: 18),
+                            label: Text(_t("clear_cache"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 42,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF2563EB),
-                        side: const BorderSide(color: Color(0xFF93C5FD)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        backgroundColor: const Color(0xFFF8FAFC),
-                      ),
-                      onPressed: _isPingingServer ? null : _pingOrWakeServer,
-                      icon: _isPingingServer
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2563EB)))
-                          : const Icon(Icons.bolt_rounded, size: 18, color: Color(0xFF2563EB)),
-                      label: Text(
-                        _isPingingServer ? _t("pinging") : _t("ping_btn"),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                      ),
+                  const SizedBox(height: 18),
+
+                  // 4. CLOUD & RAILWAY SYNC
+                  _buildSectionHeader(_t("sec_backend")),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0), width: 0.6),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(color: Color(0xFFEFF6FF), shape: BoxShape.circle),
+                              child: const Icon(Icons.cloud_sync_rounded, color: Color(0xFF2563EB), size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(_t("cloud_service_label"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A))),
+                                  Text(_t("cloud_service_sub"), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _pingStatusColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: _pingStatusColor.withOpacity(0.25), width: 0.6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(width: 6, height: 6, decoration: BoxDecoration(color: _pingStatusColor, shape: BoxShape.circle)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _pingLatencyMs != null ? "$_pingStatus • ${_pingLatencyMs}ms" : _pingStatus,
+                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: _pingStatusColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 46,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2563EB),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            onPressed: _isPingingServer ? null : _pingOrWakeServer,
+                            icon: _isPingingServer
+                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Icon(Icons.bolt_rounded, size: 18),
+                            label: Text(
+                              _isPingingServer ? _t("pinging") : _t("ping_btn"),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -683,7 +739,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Text(
         title.toUpperCase(),
         style: const TextStyle(
-          fontSize: 11.5,
+          fontSize: 11,
           fontWeight: FontWeight.w800,
           color: Color(0xFF64748B),
           letterSpacing: 0.6,

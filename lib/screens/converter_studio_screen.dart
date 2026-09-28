@@ -226,9 +226,12 @@ class _ConverterStudioScreenState extends State<ConverterStudioScreen> with Sing
         builder: (ctx, setSheetState) {
           String searchQuery = "";
           TextEditingController searchCtrl = TextEditingController();
+          final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+          final systemBottom = MediaQuery.of(ctx).padding.bottom;
 
           return Container(
             height: MediaQuery.of(context).size.height * 0.75,
+            padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset : systemBottom),
             decoration: const BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -563,9 +566,9 @@ class _ConverterStudioScreenState extends State<ConverterStudioScreen> with Sing
         ),
         title: const Text(
           "Converter Studio",
-          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0F172A)),
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: Color(0xFF0F172A)),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF8FAFC), // Unified seamless edge
         elevation: 0,
         scrolledUnderElevation: 0,
         bottom: TabBar(
@@ -587,7 +590,7 @@ class _ConverterStudioScreenState extends State<ConverterStudioScreen> with Sing
         children: [
           // TAB 1: FORMAT CONVERTER
           SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 24),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, (bottomInset > 0 ? bottomInset : 14) + 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -743,7 +746,7 @@ class _ConverterStudioScreenState extends State<ConverterStudioScreen> with Sing
 
           // TAB 2: IMAGE RESIZER
           SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 24),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, (bottomInset > 0 ? bottomInset : 14) + 20),
             child: Column(
               children: [
                 Center(
@@ -816,9 +819,9 @@ class _ConverterStudioScreenState extends State<ConverterStudioScreen> with Sing
             ),
           ),
 
-          // TAB 3: LIVE REAL-TIME CURRENCY, BULLION & DUTY CALCULATOR
+          // TAB 3: FOREX & BULLION
           SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 24),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, (bottomInset > 0 ? bottomInset : 14) + 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

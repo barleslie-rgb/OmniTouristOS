@@ -6,8 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'theme/app_theme.dart';
 import 'screens/auth_screen.dart';
 import 'screens/my_trip_screen.dart';
-import 'screens/touristos_explorer_screen.dart';
-import 'screens/flights_and_stays_hub_screen.dart';
 import 'screens/touristos_chat_screen.dart';
 import 'screens/admin_console_screen.dart';
 import 'screens/community_gems_screen.dart';
@@ -19,6 +17,8 @@ import 'screens/omni_family_vault_screen.dart';
 import 'screens/indian_railways_screen.dart';
 import 'screens/offline_survival_deck_screen.dart';
 import 'screens/converter_studio_screen.dart';
+import 'screens/about_screen.dart';
+import 'screens/travel_hub_screen.dart';
 import 'services/supabase_service.dart';
 import 'services/auth_service.dart';
 import 'services/trip_state_service.dart';
@@ -26,7 +26,6 @@ import 'services/trip_state_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Enforce zero-scrim edge-to-edge layout across the entire Flutter runtime
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -41,7 +40,6 @@ void main() async {
     ),
   );
 
-  // Initialize Supabase Client
   await SupabaseService.ensureInitialized();
 
   runApp(const TouristOSApp());
@@ -53,7 +51,7 @@ class TouristOSApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'TouristOS',
+      title: 'Omni TouristOS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const AuthGate(),
@@ -62,7 +60,7 @@ class TouristOSApp extends StatelessWidget {
 }
 
 // -------------------------------------------------------------
-// AUTH GATE
+// AUTH GATEWAY
 // -------------------------------------------------------------
 class AuthGate extends StatefulWidget {
   const AuthGate({Key? key}) : super(key: key);
@@ -150,7 +148,7 @@ class _AuthGateState extends State<AuthGate> {
 }
 
 // -------------------------------------------------------------
-// MAIN SHELL & ROUTER
+// MAIN NAVIGATION SHELL
 // -------------------------------------------------------------
 class MainNavigationShell extends StatefulWidget {
   const MainNavigationShell({Key? key}) : super(key: key);
@@ -168,54 +166,6 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   String _selectedLanguage = "English";
   final String _backendUrl = "https://omni-backend-pk28.onrender.com";
 
-  // Comprehensive language catalog: Indian Regional, European, Southeast Asian, & Arabic
-  final List<Map<String, String>> _availableLanguages = [
-    // Global Default
-    {"code": "EN", "name": "English", "native": "English"},
-
-    // Indian Regional Languages
-    {"code": "HI", "name": "Hindi", "native": "हिन्दी"},
-    {"code": "MR", "name": "Marathi", "native": "मराठी"},
-    {"code": "GU", "name": "Gujarati", "native": "ગુજરાતી"},
-    {"code": "BN", "name": "Bengali", "native": "বাংলা"},
-    {"code": "TA", "name": "Tamil", "native": "தமிழ்"},
-    {"code": "TE", "name": "Telugu", "native": "తెలుగు"},
-    {"code": "KN", "name": "Kannada", "native": "ಕನ್ನಡ"},
-    {"code": "ML", "name": "Malayalam", "native": "മലയാളം"},
-    {"code": "PA", "name": "Punjabi", "native": "ਪੰਜਾਬੀ"},
-    {"code": "OR", "name": "Odia", "native": "ଓଡ଼ିଆ"},
-
-    // Middle Eastern & Arabic
-    {"code": "AR", "name": "Arabic", "native": "العربية"},
-    {"code": "FA", "name": "Persian", "native": "فارسی"},
-    {"code": "UR", "name": "Urdu", "native": "اردو"},
-    {"code": "HE", "name": "Hebrew", "native": "עברית"},
-    {"code": "TR", "name": "Turkish", "native": "Türkçe"},
-    {"code": "SW", "name": "Swahili", "native": "Kiswahili"},
-    {"code": "AM", "name": "Amharic", "native": "አማርኛ"},
-    {"code": "AR", "name": "Arabic (Egyptian)", "native": "العربية (المصرية)"},
-    {"code": "AR", "name": "Arabic (Levantine)", "native": "العربية (الشامية)"},
-
-    // European Languages
-    {"code": "FR", "name": "French", "native": "Français"},
-    {"code": "DE", "name": "German", "native": "Deutsch"},
-    {"code": "ES", "name": "Spanish", "native": "Español"},
-    {"code": "IT", "name": "Italian", "native": "Italiano"},
-    {"code": "PT", "name": "Portuguese", "native": "Português"},
-    {"code": "NL", "name": "Dutch", "native": "Nederlands"},
-    {"code": "PL", "name": "Polish", "native": "Polski"},
-    {"code": "RU", "name": "Russian", "native": "Русский"},
-
-    // Southeast & East Asian Languages
-    {"code": "JA", "name": "Japanese", "native": "日本語"},
-    {"code": "ZH", "name": "Chinese", "native": "简体中文"},
-    {"code": "TH", "name": "Thai", "native": "ไทย"},
-    {"code": "VI", "name": "Vietnamese", "native": "Tiếng Việt"},
-    {"code": "KO", "name": "Korean", "native": "한국어"},
-    {"code": "MS", "name": "Malay", "native": "Bahasa Melayu"},
-        {"code": "ID", "name": "Indonesian", "native": "Bahasa Indonesia"},
-  ];
-
   void _onCityChanged(String city, String state, String country) {
     setState(() {
       _currentCity = city;
@@ -223,39 +173,6 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       _currentCountry = country;
     });
     TripStateService.syncActiveCityAndTransit(city: city, state: state, country: country);
-  }
-
-  void _showCityPickerDialog() {
-    final ctrl = TextEditingController(text: _currentCity);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text("Switch Active Destination", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        content: TextField(
-          controller: ctrl,
-          decoration: InputDecoration(
-            labelText: "City Name",
-            hintText: "e.g., Jaipur, Mumbai, Tokyo",
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
-            onPressed: () {
-              final newCity = ctrl.text.trim();
-              if (newCity.isNotEmpty) {
-                _onCityChanged(newCity, _currentState, _currentCountry);
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text("UPDATE"),
-          ),
-        ],
-      ),
-    );
   }
 
   String _getUserEmail() {
@@ -268,7 +185,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   void _handleToolNavigation(int targetIndex) {
     switch (targetIndex) {
-      case 1: // Paper Pilot Document Scanner
+      case 1:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -280,22 +197,23 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         );
         break;
 
-      case 2: // Destination Explorer
+      case 2:
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (ctx) => TouristOSExplorerScreen(
+            builder: (ctx) => TravelHubScreen(
               language: _selectedLanguage,
-              initialCity: _currentCity,
-              initialState: _currentState,
-              initialCountry: _currentCountry,
+              activeCity: _currentCity,
+              activeState: _currentState,
+              activeCountry: _currentCountry,
               backendUrl: _backendUrl,
+              initialTabIndex: 0,
             ),
           ),
         );
         break;
 
-      case 3: // Guide Chat Concierge
+      case 3:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -308,7 +226,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         );
         break;
 
-      case 4: // Street Voice Interpreter & Lens
+      case 4:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -320,7 +238,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         );
         break;
 
-      case 5: // Indian Railways Live Transit & Booking
+      case 5:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -332,7 +250,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         );
         break;
 
-      case 6: // Family Travel Vault
+      case 6:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -344,16 +262,20 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         );
         break;
 
-      case 7: // Community Gems Hyperlocal Directory
+      case 7:
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (ctx) => CommunityGemsScreen(activeCity: _currentCity),
+            builder: (ctx) => CommunityGemsScreen(
+              activeCity: _currentCity,
+              language: _selectedLanguage,
+              backendUrl: _backendUrl,
+            ),
           ),
         );
         break;
 
-      case 8: // Converter Studio (Forex & Bullion)
+      case 8:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -362,38 +284,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         );
         break;
 
-      case 10: // Offline Survival Deck
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (ctx) => OfflineSurvivalDeckScreen(language: _selectedLanguage),
-          ),
-        );
-        break;
-
-      case 13: // Trip Expense & Split Ledger
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (ctx) => const ExpenseLedgerScreen(),
-          ),
-        );
-        break;
-
-      case 14: // Compare Flights & Stays Booking Hub
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (ctx) => FlightsAndStaysHubScreen(
-              initialCity: _currentCity,
-              initialCountry: _currentCountry,
-              initialTab: 0,
-            ),
-          ),
-        );
-        break;
-
-      case 9: // Settings
+      case 9:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -406,6 +297,58 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         );
         break;
 
+      case 10:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (ctx) => OfflineSurvivalDeckScreen(language: _selectedLanguage),
+          ),
+        );
+        break;
+
+      case 13:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (ctx) => const ExpenseLedgerScreen(),
+          ),
+        );
+        break;
+
+      case 14:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (ctx) => TravelHubScreen(
+              language: _selectedLanguage,
+              activeCity: _currentCity,
+              activeState: _currentState,
+              activeCountry: _currentCountry,
+              backendUrl: _backendUrl,
+              initialTabIndex: 1,
+            ),
+          ),
+        );
+        break;
+
+      case 15:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (ctx) => const AboutFeaturesScreen(),
+          ),
+        );
+        break;
+
+      case 99: // Master Admin Console Direct
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (ctx) => AdminConsoleScreen(backendUrl: _backendUrl),
+          ),
+        );
+        break;
+
       default:
         _scaffoldKey.currentState?.openDrawer();
     }
@@ -413,133 +356,29 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   @override
   Widget build(BuildContext context) {
-    // Determine the short code of the current language for the AppBar badge
-    final currentMatch = _availableLanguages.firstWhere(
-      (l) => l["name"] == _selectedLanguage,
-      orElse: () => _availableLanguages.first,
-    );
-    final String currentCode = currentMatch["code"] ?? "EN";
-
-    return Scaffold(
-      key: _scaffoldKey,
-      extendBodyBehindAppBar: false,
-      backgroundColor: const Color(0xFFF8FAFC),
-      drawer: _buildAppDrawer(),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
-          systemStatusBarContrastEnforced: false,
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.menu_rounded, color: Color(0xFF0F172A), size: 26),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
-        titleSpacing: 0,
-        title: InkWell(
-          onTap: _showCityPickerDialog,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _currentCity,
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16.5, color: Color(0xFF0F172A)),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.near_me_rounded, size: 14, color: Color(0xFF2563EB)),
-                  ],
-                ),
-                Text(
-                  "$_currentState, $_currentCountry",
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 14),
-            padding: const EdgeInsets.all(6),
-            decoration: const BoxDecoration(
-              color: Color(0xFF16A34A),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.download_done_rounded, size: 14, color: Colors.white),
-          ),
-          IconButton(
-            icon: const Icon(Icons.my_location_rounded, color: Color(0xFF2563EB), size: 20),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  duration: const Duration(seconds: 2),
-                  content: Text("GPS Locked: $_currentCity, $_currentState"),
-                ),
-              );
-            },
-          ),
-          // Complete International & Regional Language Dropdown
-          Container(
-            margin: const EdgeInsets.only(right: 14, left: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedLanguage,
-                isDense: true,
-                icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF2563EB)),
-                items: _availableLanguages.map((langMap) {
-                  final String name = langMap["name"]!;
-                  final String code = langMap["code"]!;
-                  final String native = langMap["native"]!;
-
-                  return DropdownMenuItem<String>(
-                    value: name,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.language_rounded, size: 13, color: Color(0xFF2563EB)),
-                        const SizedBox(width: 4),
-                        Text(
-                          "$code ($native)",
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E40AF),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedLanguage = val);
-                },
-              ),
-            ),
-          ),
-        ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemStatusBarContrastEnforced: false,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
+        systemNavigationBarDividerColor: Colors.transparent,
       ),
-      body: MyTripScreen(
-        language: _selectedLanguage,
-        backendUrl: _backendUrl,
-        onNavigateTab: _handleToolNavigation,
-        onCityChange: _onCityChanged,
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: const Color(0xFFF8FAFC),
+        drawer: _buildAppDrawer(),
+        body: MyTripScreen(
+          language: _selectedLanguage,
+          backendUrl: _backendUrl,
+          onNavigateTab: _handleToolNavigation,
+          onCityChange: _onCityChanged,
+          onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+          onLanguageChanged: (lang) => setState(() => _selectedLanguage = lang),
+        ),
       ),
     );
   }
@@ -581,7 +420,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       const Icon(Icons.pin_drop_rounded, color: Colors.white54, size: 13),
                       const SizedBox(width: 4),
                       Text(
-                        "Active Location: $_currentCity, $_currentState",
+                        "Active: $_currentCity, $_currentState",
                         style: const TextStyle(color: Colors.white70, fontSize: 11),
                       ),
                     ],
@@ -589,19 +428,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 ],
               ),
             ),
-
-            // Master Admin Console
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
               child: InkWell(
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (ctx) => AdminConsoleScreen(backendUrl: _backendUrl),
-                    ),
-                  );
+                  _handleToolNavigation(99);
                 },
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
@@ -614,8 +446,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     children: [
                       Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
-                        child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF38BDF8), size: 18),
+                        decoration: const BoxDecoration(color: Color(0xFF1E3A8A), shape: BoxShape.circle),
+                        child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF60A5FA), size: 18),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -623,7 +455,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: const [
                             Text("Master Admin Console", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                            Text("Telemetry & Key Health", style: TextStyle(color: Colors.white54, fontSize: 11)),
+                            Text("Telemetry, Profiles & Server Status", style: TextStyle(color: Colors.white54, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -632,14 +464,13 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 ),
               ),
             ),
-
             _buildDrawerSectionHeader("TRIP & EXPLORATION"),
             _buildDrawerItem(Icons.grid_view_rounded, "Home Dashboard", () => Navigator.pop(context), isSelected: true),
-            _buildDrawerItem(Icons.explore_rounded, "Destination Explorer", () {
+            _buildDrawerItem(Icons.explore_rounded, "Destinations Explorer", () {
               Navigator.pop(context);
               _handleToolNavigation(2);
             }),
-            _buildDrawerItem(Icons.flight_takeoff_rounded, "Compare Flights & Stays", () {
+            _buildDrawerItem(Icons.flight_takeoff_rounded, "Flights & Stays Hub", () {
               Navigator.pop(context);
               _handleToolNavigation(14);
             }),
@@ -651,7 +482,6 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               Navigator.pop(context);
               _handleToolNavigation(7);
             }),
-
             _buildDrawerSectionHeader("STREET SURVIVAL & AI"),
             _buildDrawerItem(Icons.offline_bolt_rounded, "Offline Survival Deck", () {
               Navigator.pop(context);
@@ -669,7 +499,6 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               Navigator.pop(context);
               _handleToolNavigation(3);
             }),
-
             _buildDrawerSectionHeader("MONEY & UTILITIES"),
             _buildDrawerItem(Icons.account_balance_wallet_rounded, "Trip Expense & Split Ledger", () {
               Navigator.pop(context);
@@ -683,22 +512,15 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               Navigator.pop(context);
               _handleToolNavigation(6);
             }),
-
             _buildDrawerSectionHeader("SYSTEM & PREFERENCES"),
+            _buildDrawerItem(Icons.info_outline_rounded, "About & Features", () {
+              Navigator.pop(context);
+              _handleToolNavigation(15);
+            }),
             _buildDrawerItem(Icons.settings_rounded, "Settings", () {
               Navigator.pop(context);
               _handleToolNavigation(9);
             }),
-            _buildDrawerItem(Icons.info_outline_rounded, "About Omni TouristOS", () {
-              Navigator.pop(context);
-              showAboutDialog(
-                context: context,
-                applicationName: "Omni TouristOS",
-                applicationVersion: "Version 85.0.0 (Production Release)",
-                applicationLegalese: "The comprehensive travel operating system engineered for seamless navigation.",
-              );
-            }),
-
             const Divider(height: 24),
             ListTile(
               leading: const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 20),
@@ -716,17 +538,17 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   Widget _buildDrawerSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
       child: Text(
         title,
-        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 0.5),
       ),
     );
   }
 
   Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap, {bool isSelected = false, String? trailingBadge}) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 1.5),
       decoration: BoxDecoration(
         color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
@@ -750,7 +572,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: const Color(0xFFBFDBFE)),
                 ),
-                child: Text(trailingBadge, style: const TextStyle(fontSize: 10, color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
+                child: Text(trailingBadge, style: const TextStyle(fontSize: 9.5, color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
               )
             : null,
         onTap: onTap,

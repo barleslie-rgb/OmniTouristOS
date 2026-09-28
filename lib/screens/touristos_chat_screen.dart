@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +11,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../widgets/metallic_embossed_button.dart';
 
 class TouristOSChatScreen extends StatefulWidget {
   final String language;
@@ -43,69 +49,96 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
   late FlutterTts _flutterTts;
   int? _currentlySpeakingIndex;
 
+  Position? _currentPosition;
+  String? _savedHomeAddress;
+  bool _isLostAssistanceActive = false;
+  bool _isScanningLocation = false;
+
+  // Regional Western & Central Railway Station Catalog
+  static const List<Map<String, dynamic>> _railStations = [
+    {"name": "Dahanu Road", "code": "DRD", "lat": 19.9733, "lon": 72.7308, "line": "WR"},
+    {"name": "Palghar", "code": "PLG", "lat": 19.6967, "lon": 72.7656, "line": "WR"},
+    {"name": "Saphale", "code": "SAH", "lat": 19.5767, "lon": 72.8183, "line": "WR"},
+    {"name": "Vaitarna", "code": "VTN", "lat": 19.5186, "lon": 72.8453, "line": "WR"},
+    {"name": "Virar", "code": "VR", "lat": 19.4544, "lon": 72.8114, "line": "WR"},
+    {"name": "Nallasopara", "code": "NSP", "lat": 19.4181, "lon": 72.8197, "line": "WR"},
+    {"name": "Vasai Road", "code": "BSR", "lat": 19.3808, "lon": 72.8317, "line": "WR"},
+    {"name": "Naigaon", "code": "NIG", "lat": 19.3522, "lon": 72.8519, "line": "WR"},
+    {"name": "Bhayandar", "code": "BYR", "lat": 19.3006, "lon": 72.8528, "line": "WR"},
+    {"name": "Mira Road", "code": "MIRA", "lat": 19.2814, "lon": 72.8561, "line": "WR"},
+    {"name": "Dahisar", "code": "DIC", "lat": 19.2503, "lon": 72.8592, "line": "WR"},
+    {"name": "Borivali", "code": "BVI", "lat": 19.2294, "lon": 72.8572, "line": "WR"},
+    {"name": "Kandivali", "code": "KND", "lat": 19.2044, "lon": 72.8522, "line": "WR"},
+    {"name": "Malad", "code": "MLD", "lat": 19.1869, "lon": 72.8486, "line": "WR"},
+    {"name": "Goregaon", "code": "GMN", "lat": 19.1644, "lon": 72.8483, "line": "WR"},
+    {"name": "Andheri", "code": "ADH", "lat": 19.1197, "lon": 72.8464, "line": "WR"},
+    {"name": "Bandra", "code": "BA", "lat": 19.0544, "lon": 72.8406, "line": "WR"},
+    {"name": "Dadar", "code": "DDR", "lat": 19.0178, "lon": 72.8433, "line": "WR"},
+    {"name": "Mumbai Central", "code": "MMCT", "lat": 18.9697, "lon": 72.8194, "line": "WR"},
+    {"name": "Churchgate", "code": "CCG", "lat": 18.9322, "lon": 72.8264, "line": "WR"},
+    {"name": "Thane", "code": "TNA", "lat": 19.1860, "lon": 72.9756, "line": "CR"},
+    {"name": "Kalyan Junction", "code": "KYN", "lat": 19.2436, "lon": 73.1306, "line": "CR"},
+    {"name": "Panvel", "code": "PNVL", "lat": 18.9894, "lon": 73.1175, "line": "CR"},
+    {"name": "CSMT (VT)", "code": "CSMT", "lat": 18.9400, "lon": 72.8353, "line": "CR"},
+  ];
+
   static const Map<String, Map<String, String>> _dict = {
     "English": {
-      "header_title": "Omni Concierge & Guide",
-      "header_subtitle": "Conversational travel planner, verified stays, & local insider advice",
+      "header_title": "Omni Concierge & Motion Radar",
+      "header_subtitle": "Conversational travel expert & real-time transit radar",
+      "chip_where_am_i": "📍 Where Am I Travelling?",
+      "chip_lost": "🆘 I am Lost! Help Me",
+      "chip_home": "🏠 Set Home Base",
       "chip_plan": "🗺️ Plan a Trip",
-      "chip_season": "☀️ Weather & Best Months",
-      "chip_scams": "⚠️ Scams & Safety Warnings",
-      "chip_food": "🍲 Local Dishes & Hidden Gems",
-      "chip_hotels": "🏨 Curated Stays",
-      "chip_transit": "🚇 Transit Passes & Routes",
-      "hint_text": "Ask your travel guide anything...",
-      "typing_prefix": "Guide Assistant is reasoning...",
+      "chip_season": "☀️ Weather & Months",
+      "chip_scams": "⚠️ Scams & Safety",
+      "chip_food": "🍲 Local Dishes",
+      "hint_text": "Ask anything, inquire about transit or say 'Where am I'...",
+      "typing_prefix": "AI Transit Radar is analyzing...",
       "copy_text": "Copy",
       "listen_text": "Listen",
       "stop_text": "Stop",
       "copied_notice": "Text copied to clipboard!",
-      "export_header": "Export Active Intelligence Dossier",
-      "btn_pdf": "DOWNLOAD PDF",
-      "btn_docx": "DOWNLOAD DOC",
-      "btn_share": "SHARE",
-      "initial_greeting": "Hey there! I am your personal Omni TouristOS Travel Concierge. Where are we heading, or how can I help you explore today?",
+      "export_header": "Export Travel Intelligence Dossier",
+      "initial_greeting": "Hello! I am your Omni TouristOS Concierge & Motion Radar.\n\nAsk me travel questions, or tap 'Where Am I Travelling?' to track your live transit speed and upcoming station.",
     },
     "Marathi": {
-      "header_title": "ओम्नी ट्रॅव्हल कॉन्सिअर्ज",
-      "header_subtitle": "संभाषणयुक्त प्रवास नियोजन व स्थानिक मार्गदर्शन",
-      "chip_plan": "🗺️ सहलीचे नियोजन करा",
-      "chip_season": "☀️ सर्वोत्तम महिने व हवामान",
-      "chip_scams": "⚠️ फसवणूक व सुरक्षितता इशारे",
+      "header_title": "ओम्नी ट्रॅव्हल व मोशन रडार",
+      "header_subtitle": "थेट प्रवास मार्गदर्शन, वेग व पुढील स्थानक शोधक",
+      "chip_where_am_i": "📍 मी सध्या कुठे प्रवास करत आहे?",
+      "chip_lost": "🆘 मी रस्ता चुकलो आहे!",
+      "chip_home": "🏠 मुक्कामाचा पत्ता सेव्ह करा",
+      "chip_plan": "🗺️ सहलीचे नियोजन",
+      "chip_season": "☀️ हवामान माहिती",
+      "chip_scams": "⚠️ सुरक्षितता इशारे",
       "chip_food": "🍲 स्थानिक खाद्यसंस्कृती",
-      "chip_hotels": "🏨 उत्तम हॉटेल्स",
-      "chip_transit": "🚇 वाहतूक व मेट्रो पासेस",
-      "hint_text": "आपल्या गाईडला काहीही विचारा...",
-      "typing_prefix": "गाईड विचार करत आहे...",
+      "hint_text": "काहीही विचारा किंवा 'मी सध्या कुठे आहे' म्हणा...",
+      "typing_prefix": "मोशन रडार विश्लेषण करत आहे...",
       "copy_text": "कॉपी करा",
       "listen_text": "ऐका",
       "stop_text": "थांबवा",
-      "copied_notice": "मजकूर क्लिपबोर्डवर कॉपी केला!",
-      "export_header": "तयार केलेला आराखडा डाऊनलोड करा",
-      "btn_pdf": "PDF डाऊनलोड करा",
-      "btn_docx": "DOC डाऊनलोड करा",
-      "btn_share": "शेअर करा",
-      "initial_greeting": "नमस्कार! मी आपला वैयक्तिक ओम्नी टूरिस्ट मार्गदर्शक आहे. आपण कोणत्या शहराची सहल आखत आहात?",
+      "copied_notice": "मजकूर क्लिपबोर्डवर सेव्ह केला!",
+      "export_header": "प्रवास अहवाल डाऊनलोड करा",
+      "initial_greeting": "नमस्कार! मी तुमचा ओम्नी टूरिस्ट आणि थेट प्रवास रडार मार्गदर्शक आहे.\n\nतुम्ही ट्रेन किंवा गाडीत असाल, तर 'मी सध्या कुठे प्रवास करत आहे?' वर टॅप करा, मी तुमचा वेग व पुढील स्थानक सांगतो.",
     },
     "Hindi": {
-      "header_title": "ओम्नी ट्रेवल गाइड",
-      "header_subtitle": "संवादात्मक यात्रा योजना, सुरक्षा अलर्ट्स व स्थानीय सुझाव",
+      "header_title": "ओम्नी ट्रेवल व मोशन रडार",
+      "header_subtitle": "सटीक लाइव्ह स्पीड, लोकेशन व अगला स्टेशन ट्रैकर",
+      "chip_where_am_i": "📍 मैं अभी कहाँ यात्रा कर रहा हूँ?",
+      "chip_lost": "🆘 मैं रास्ता भटक गया हूँ!",
+      "chip_home": "🏠 होटल पता सेट करें",
       "chip_plan": "🗺️ नई ट्रिप प्लान करें",
-      "chip_season": "☀️ सबसे अच्छा मौसम",
-      "chip_scams": "⚠️ स्कैम अलर्ट्स व सुरक्षा",
-      "chip_food": "🍲 स्थानीय प्रसिद्ध भोजन",
-      "chip_hotels": "🏨 बेहतरीन होटल्स",
-      "chip_transit": "🚇 लोकल ट्रांसपोर्ट व पासेज",
-      "hint_text": "अपने गाइड से कुछ भी पूछें...",
-      "typing_prefix": "गाइड विश्लेषण कर रहा है...",
+      "chip_season": "☀️ मौसम की जानकारी",
+      "chip_scams": "⚠️ सुरक्षा व अलर्ट्स",
+      "chip_food": "🍲 प्रसिद्ध भोजन",
+      "hint_text": "कुछ भी पूछें या 'मैं कहाँ हूँ' लिखें...",
+      "typing_prefix": "मोशन रडार विश्लेषण कर रहा है...",
       "copy_text": "कॉपी करें",
       "listen_text": "सुनें",
       "stop_text": "रोकें",
-      "copied_notice": "टेक्स्ट क्लिपबोर्ड पर कॉपी किया गया!",
+      "copied_notice": "टेक्स्ट कॉपी हो गया!",
       "export_header": "यात्रा रिपोर्ट डाउनलोड करें",
-      "btn_pdf": "PDF डाउनलोड करें",
-      "btn_docx": "DOC डाउनलोड करें",
-      "btn_share": "शेयर करें",
-      "initial_greeting": "नमस्ते! मैं आपका पर्सनल ओम्नी टूरिस्टओएस ट्रेवल गाइड हूँ। आप किस शहर की यात्रा प्लान करना चाहते हैं?",
+      "initial_greeting": "नमस्ते! मैं आपका ओम्नी टूरिस्ट और लाइव मोशन रडार गाइड हूँ।\n\nसटीक लोकेशन, ट्रेन स्पीड और अगले स्टेशन की जानकारी के लिए 'मैं अभी कहाँ यात्रा कर रहा हूँ?' पर टैप करें।",
     }
   };
 
@@ -122,11 +155,15 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
     super.initState();
     _speech = stt.SpeechToText();
     _initTts();
+    _loadSavedHomeAddress();
+    _fetchLiveLocation();
 
     _messages.add({
       "role": "assistant",
       "text": _t("initial_greeting"),
       "has_document": false,
+      "is_lost_card": false,
+      "is_motion_card": false,
     });
 
     _wakeBackend();
@@ -144,9 +181,42 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
     _flutterTts.setCompletionHandler(() {
       if (mounted) setState(() => _currentlySpeakingIndex = null);
     });
-    _flutterTts.setErrorHandler((msg) {
+    _flutterTts.setErrorHandler((_) {
       if (mounted) setState(() => _currentlySpeakingIndex = null);
     });
+  }
+
+  Future<void> _loadSavedHomeAddress() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('user_home_base_address');
+      if (mounted) setState(() => _savedHomeAddress = saved);
+    } catch (_) {}
+  }
+
+  Future<void> _saveHomeAddress(String address) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_home_base_address', address.trim());
+      if (mounted) setState(() => _savedHomeAddress = address.trim());
+    } catch (_) {}
+  }
+
+  Future<Position?> _fetchLiveLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        await Geolocator.requestPermission();
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.bestForNavigation,
+        timeLimit: const Duration(seconds: 6),
+      );
+      if (mounted) setState(() => _currentPosition = pos);
+      return pos;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -158,6 +228,186 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
     super.dispose();
   }
 
+  // Live Motion & Station Prediction Engine
+  Map<String, dynamic> _analyzeLiveMotionAndStations(Position pos) {
+    final double lat = pos.latitude;
+    final double lon = pos.longitude;
+    final double speedKmh = math.max(0, pos.speed * 3.6);
+    final double heading = pos.heading;
+
+    // Calculate nearest station
+    Map<String, dynamic>? closestStation;
+    double minDistanceKm = double.infinity;
+
+    for (var st in _railStations) {
+      final double distMeters = Geolocator.distanceBetween(
+        lat,
+        lon,
+        st["lat"] as double,
+        st["lon"] as double,
+      );
+      final double distKm = distMeters / 1000.0;
+      if (distKm < minDistanceKm) {
+        minDistanceKm = distKm;
+        closestStation = st;
+      }
+    }
+
+    // Determine direction of travel (Compass & track vector)
+    String direction = "Unknown";
+    bool isHeadingNorth = false;
+    if (heading >= 315 || heading <= 45) {
+      direction = "Northbound (Towards Virar / Dahanu)";
+      isHeadingNorth = true;
+    } else if (heading >= 135 && heading <= 225) {
+      direction = "Southbound (Towards Borivali / Churchgate / CSMT)";
+      isHeadingNorth = false;
+    } else if (heading > 45 && heading < 135) {
+      direction = "Eastbound (Towards Thane / Kalyan)";
+    } else {
+      direction = "Westbound (Towards Coast)";
+    }
+
+    // Motion status mode
+    String transitMode = "Standing / Walking";
+    if (speedKmh > 35) {
+      transitMode = "Fast Moving (Express / Suburban Train or Highway)";
+    } else if (speedKmh > 10) {
+      transitMode = "In Transit (Auto / Cab / Train Cruising)";
+    }
+
+    // Predict Next Station based on trajectory
+    Map<String, dynamic>? nextStation;
+    double nextStationDistKm = 0.0;
+
+    if (closestStation != null) {
+      final int currentIndex = _railStations.indexWhere((s) => s["code"] == closestStation!["code"]);
+      if (currentIndex != -1) {
+        if (speedKmh > 12) {
+          // If moving fast, evaluate whether heading towards next index or previous index
+          if (isHeadingNorth && currentIndex > 0) {
+            nextStation = _railStations[currentIndex - 1]; // Lower index is north in our list
+          } else if (!isHeadingNorth && currentIndex < _railStations.length - 1) {
+            nextStation = _railStations[currentIndex + 1]; // Higher index is south
+          } else {
+            nextStation = closestStation;
+          }
+        } else {
+          nextStation = closestStation;
+        }
+
+        if (nextStation != null) {
+          final double distM = Geolocator.distanceBetween(
+            lat,
+            lon,
+            nextStation["lat"] as double,
+            nextStation["lon"] as double,
+          );
+          nextStationDistKm = distM / 1000.0;
+        }
+      }
+    }
+
+    return {
+      "speedKmh": speedKmh.round(),
+      "direction": direction,
+      "transitMode": transitMode,
+      "closestStation": closestStation?["name"] ?? "Vasai Road",
+      "closestCode": closestStation?["code"] ?? "BSR",
+      "closestDistKm": minDistanceKm,
+      "isAtStation": minDistanceKm < 0.45,
+      "nextStation": nextStation?["name"] ?? "Approaching Station",
+      "nextCode": nextStation?["code"] ?? "Next",
+      "nextDistKm": nextStationDistKm,
+      "lat": lat,
+      "lon": lon,
+    };
+  }
+
+  Future<void> _executeLiveMotionRadar() async {
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _isScanningLocation = true;
+      _messages.add({
+        "role": "user",
+        "text": "📍 Where am I travelling right now? Tell me my live station and speed.",
+        "has_document": false,
+        "is_lost_card": false,
+        "is_motion_card": false,
+      });
+      _isTyping = true;
+    });
+    _scrollToBottom();
+
+    final pos = await _fetchLiveLocation();
+    setState(() => _isScanningLocation = false);
+
+    if (pos == null) {
+      setState(() {
+        _isTyping = false;
+        _messages.add({
+          "role": "assistant",
+          "text": "### 📡 GPS Location Temporarily Unavailable\n\nPlease ensure Location/GPS permission is enabled in device settings and try again.",
+          "has_document": false,
+          "is_lost_card": false,
+          "is_motion_card": false,
+        });
+      });
+      _scrollToBottom();
+      return;
+    }
+
+    final radar = _analyzeLiveMotionAndStations(pos);
+    final speed = radar["speedKmh"] as int;
+    final closest = radar["closestStation"] as String;
+    final closestCode = radar["closestCode"] as String;
+    final closestDist = (radar["closestDistKm"] as double).toStringAsFixed(1);
+    final isAt = radar["isAtStation"] as bool;
+    final next = radar["nextStation"] as String;
+    final nextCode = radar["nextCode"] as String;
+    final nextDist = (radar["nextDistKm"] as double).toStringAsFixed(1);
+    final dir = radar["direction"] as String;
+    final mode = radar["transitMode"] as String;
+
+    String radarReport;
+    if (isAt) {
+      radarReport = "### 🚉 You are At **$closest ($closestCode)** Station\n\n"
+          "• **Station:** $closest ($closestCode)\n"
+          "• **Current Speed:** $speed km/h (Stationary / Platform)\n"
+          "• **Coordinates:** ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}\n\n"
+          "You are standing or halted at the station platform area.";
+    } else if (speed > 25) {
+      radarReport = "### 🚄 Live Transit Motion Detected\n\n"
+          "• **Speed:** **$speed km/h**\n"
+          "• **Trajectory:** $dir\n"
+          "• **Nearest Hub:** $closest ($closestCode) • $closestDist km away\n"
+          "• **Predicted Next Station:** **$next ($nextCode)** (approx. **$nextDist km** ahead)\n\n"
+          "You are actively moving along the transit line. Estimated arrival at **$next** in ${(radar["nextDistKm"] / (speed / 60)).round()} mins.";
+    } else {
+      radarReport = "### 📍 Live Street Location Identified\n\n"
+          "• **Area:** Near $closest, ${widget.activeCity}\n"
+          "• **Speed:** $speed km/h ($mode)\n"
+          "• **Nearest Railway Station:** $closest ($closestCode) • $closestDist km away\n\n"
+          "You are travelling at local street velocity.";
+    }
+
+    if (mounted) {
+      setState(() {
+        _isTyping = false;
+        _messages.add({
+          "role": "assistant",
+          "text": radarReport,
+          "has_document": false,
+          "is_lost_card": false,
+          "is_motion_card": true,
+          "radar_data": radar,
+        });
+      });
+      _scrollToBottom();
+      _toggleTts(_messages.length - 1, radarReport);
+    }
+  }
+
   Future<void> _toggleListening() async {
     if (_isListening) {
       await _speech.stop();
@@ -166,7 +416,7 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
     }
 
     final available = await _speech.initialize(
-      onError: (val) {
+      onError: (_) {
         if (mounted) setState(() => _isListening = false);
       },
       onStatus: (val) {
@@ -181,9 +431,9 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
 
       String localeId = "en_IN";
       final lang = widget.language.toLowerCase();
-      if (lang.contains("marathi") || lang.contains("मराठी")) {
+      if (lang.contains("marathi") || widget.language.contains("मराठी")) {
         localeId = "mr_IN";
-      } else if (lang.contains("hindi") || lang.contains("हिंदी")) {
+      } else if (lang.contains("hindi") || widget.language.contains("हिंदी")) {
         localeId = "hi_IN";
       }
 
@@ -221,15 +471,15 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
 
     String langTag = "en-IN";
     final l = widget.language.toLowerCase();
-    if (l.contains("marathi") || l.contains("मराठी")) {
+    if (l.contains("marathi") || widget.language.contains("मराठी")) {
       langTag = "mr-IN";
-    } else if (l.contains("hindi") || l.contains("हिंदी")) {
+    } else if (l.contains("hindi") || widget.language.contains("हिंदी")) {
       langTag = "hi-IN";
     }
 
     await _flutterTts.setLanguage(langTag);
     await _flutterTts.setPitch(1.0);
-    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setSpeechRate(0.50);
 
     final cleanText = _sanitizeForSpeech(text);
     if (cleanText.isEmpty) return;
@@ -244,25 +494,105 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
       SnackBar(
         backgroundColor: const Color(0xFF0F172A),
         duration: const Duration(seconds: 2),
-        content: Text(_t("copied_notice"),
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        content: Text(_t("copied_notice"), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
       ),
     );
   }
 
-  String _findLatestItineraryText() {
-    for (int i = _messages.length - 1; i >= 0; i--) {
-      final msg = _messages[i];
-      if (msg["role"] == "assistant") {
-        final text = (msg["text"] ?? "").toString();
-        if (text.length > 80 &&
-            !text.startsWith("Here is your formatted") &&
-            !text.startsWith("Hey there! I am your personal")) {
-          return text;
-        }
-      }
+  Future<void> _launchMapsNavigation(String destination, {bool isWalking = false}) async {
+    HapticFeedback.mediumImpact();
+    await _fetchLiveLocation();
+
+    Uri mapUri;
+    if (_currentPosition != null) {
+      mapUri = Uri.parse(
+        "https://www.google.com/maps/dir/?api=1"
+        "&origin=${_currentPosition!.latitude},${_currentPosition!.longitude}"
+        "&destination=${Uri.encodeComponent(destination)}"
+        "&travelmode=${isWalking ? 'walking' : 'driving'}",
+      );
+    } else {
+      mapUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(destination)}");
     }
-    return _messages.isNotEmpty ? (_messages.last["text"] ?? "") : "";
+
+    try {
+      if (!await launchUrl(mapUri, mode: LaunchMode.externalApplication)) {
+        await launchUrl(mapUri, mode: LaunchMode.platformDefault);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _openCurrentGpsOnMaps() async {
+    HapticFeedback.mediumImpact();
+    await _fetchLiveLocation();
+    if (_currentPosition != null) {
+      final uri = Uri.parse("https://maps.google.com/?q=${_currentPosition!.latitude},${_currentPosition!.longitude}");
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _shareRescueLocationViaWhatsApp() async {
+    HapticFeedback.heavyImpact();
+    await _fetchLiveLocation();
+    final String latLng = _currentPosition != null
+        ? "https://maps.google.com/?q=${_currentPosition!.latitude},${_currentPosition!.longitude}"
+        : "near ${widget.activeCity}";
+
+    final message = "Emergency Alert from Omni TouristOS: I need assistance. My live GPS spot: $latLng";
+    await Share.share(message, subject: "Emergency Navigation Support");
+  }
+
+  void _showSetHomeBaseDialog() {
+    final ctrl = TextEditingController(text: _savedHomeAddress ?? "");
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.home_rounded, color: Color(0xFF2563EB), size: 22),
+            SizedBox(width: 8),
+            Text("Set Home / Hotel Base", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Tell me your hotel name, stay address, or apartment. If you ever feel lost or ask for directions, I will guide you straight back here.",
+              style: TextStyle(fontSize: 12.5, color: Color(0xFF475569)),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              decoration: InputDecoration(
+                labelText: "Hotel / Stay Address",
+                hintText: "e.g., The Golden Chariot, Vasai East",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.pin_drop_rounded, size: 20, color: Color(0xFF2563EB)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          MetallicEmbossedButton(
+            label: "SAVE BASE",
+            variant: MetallicVariant.cobaltBlue,
+            height: 38,
+            fontSize: 12,
+            onPressed: () async {
+              if (ctrl.text.trim().isNotEmpty) {
+                await _saveHomeAddress(ctrl.text.trim());
+                Navigator.pop(ctx);
+                _sendMessage("I have set my home / hotel base to: ${ctrl.text.trim()}");
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _sendMessage(String text) async {
@@ -276,75 +606,89 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
 
     final lower = cleanText.toLowerCase();
 
-    // Instant local greeting evaluation
-    final greetings = ["hello", "hi", "hey", "namaste", "hola", "greetings", "good morning", "good afternoon", "good evening", "hii", "helo"];
-    if (greetings.contains(lower.replaceAll(RegExp(r'[?!.,]'), ''))) {
-      setState(() {
-        _messages.add({"role": "user", "text": cleanText, "has_document": false});
-      });
-      _msgCtrl.clear();
-      _scrollToBottom();
-
-      String localGreeting = "Hello! Welcome to Omni TouristOS. Which destination would you like to explore or plan today?";
-      final l = widget.language.toLowerCase();
-      if (l.contains("marathi") || l.contains("मराठी")) {
-        localGreeting = "नमस्कार! ओम्नी टूरिस्टओएस मध्ये आपले स्वागत आहे. मी आपली काय मदत करू शकतो?";
-      } else if (l.contains("hindi") || l.contains("हिंदी")) {
-        localGreeting = "नमस्ते! ओम्नी टूरिस्टओएस में आपका स्वागत है। मैं आपकी यात्रा योजना में कैसे मदद कर सकता हूँ?";
-      }
-
-      await Future.delayed(const Duration(milliseconds: 150));
-      if (mounted) {
-        setState(() {
-          _messages.add({"role": "assistant", "text": localGreeting, "has_document": false});
-        });
-        _scrollToBottom();
-      }
+    // Trigger Live Motion Engine if user asks where they are or about transit motion
+    if (lower.contains("where am i") ||
+        lower.contains("which station") ||
+        lower.contains("what station") ||
+        lower.contains("am i on train") ||
+        lower.contains("train speed") ||
+        lower.contains("kuthlya station") ||
+        lower.contains("kaha hu") ||
+        lower.contains("agla station")) {
+      await _executeLiveMotionRadar();
       return;
     }
 
-    final isExportRequest = lower.contains("pdf") ||
-        lower.contains("doc") ||
-        lower.contains("word") ||
-        lower.contains("convert") ||
-        lower.contains("download");
+    if (lower.startsWith("my hotel is") ||
+        lower.startsWith("my stay is") ||
+        lower.startsWith("i live at") ||
+        lower.startsWith("i am staying at") ||
+        lower.startsWith("i have set my home")) {
+      final extracted = cleanText.replaceFirst(RegExp(r'^(my hotel is|my stay is|i live at|i am staying at|i have set my home / hotel base to:)', caseSensitive: false), '').trim();
+      if (extracted.isNotEmpty) {
+        await _saveHomeAddress(extracted);
+      }
+    }
+
+    final bool isLostSignal = lower.contains("lost") ||
+        lower.contains("help me") ||
+        lower.contains("take me home") ||
+        lower.contains("navigate home") ||
+        lower.contains("rasta bhatak") ||
+        lower.contains("rasta chuklo");
+
+    if (!isLostSignal) _isLostAssistanceActive = false;
 
     setState(() {
       _messages.add({
         "role": "user",
         "text": cleanText,
         "has_document": false,
+        "is_lost_card": false,
+        "is_motion_card": false,
       });
       _isTyping = true;
     });
     _msgCtrl.clear();
     _scrollToBottom();
 
-    if (isExportRequest) {
-      final latestItinerary = _findLatestItineraryText();
-      if (latestItinerary.isNotEmpty) {
-        await Future.delayed(const Duration(milliseconds: 300));
-        if (lower.contains("pdf")) {
-          _generateAndDownloadPdf(latestItinerary, autoShare: false);
-        } else if (lower.contains("doc") || lower.contains("word")) {
-          _generateAndDownloadDoc(latestItinerary, autoShare: false);
-        }
+    if (isLostSignal) {
+      await _fetchLiveLocation();
+      _isLostAssistanceActive = true;
 
-        if (mounted) {
-          setState(() {
-            _messages.add({
-              "role": "assistant",
-              "text": "Here is your formatted travel dossier ready for download and sharing.\n\n"
-                  "Tap the **DOWNLOAD PDF** or **DOWNLOAD DOC** buttons below to save or forward your complete itinerary file.",
-              "has_document": true,
-              "export_source_text": latestItinerary,
-            });
-            _isTyping = false;
-          });
-          _scrollToBottom();
-        }
-        return;
+      String rescueResponse;
+      bool hasHome = _savedHomeAddress != null && _savedHomeAddress!.isNotEmpty;
+
+      if (hasHome) {
+        rescueResponse = "### 🛡️ Don't Worry, You Are Safe!\n\n"
+            "Take a deep breath. I have pinpointed your current location.\n\n"
+            "• **Live GPS Coordinates Locked**\n"
+            "• **Saved Base:** ${_savedHomeAddress!}\n\n"
+            "Tap **NAVIGATE HOME NOW** below to start turn-by-turn routing straight to your stay.";
+      } else {
+        rescueResponse = "### 🛡️ Stay Calm, You Are Safe With Me!\n\n"
+            "Stand somewhere well-lit. I've locked your live GPS coordinates.\n\n"
+            "**Look at your surroundings:**\n"
+            "1. Can you see a large shop board, bridge, or railway station?\n"
+            "2. Or tell me the hotel or building you want to reach.\n\n"
+            "Type what you see, and I will navigate you immediately.";
       }
+
+      if (mounted) {
+        setState(() {
+          _messages.add({
+            "role": "assistant",
+            "text": rescueResponse,
+            "has_document": false,
+            "is_lost_card": true,
+            "is_motion_card": false,
+            "target_destination": hasHome ? _savedHomeAddress! : widget.activeCity,
+          });
+          _isTyping = false;
+        });
+        _scrollToBottom();
+      }
+      return;
     }
 
     String? generatedAnswer;
@@ -367,8 +711,10 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
           "question": cleanText,
           "target_language": widget.language,
           "chat_history": historyPayload,
+          "saved_home_base": _savedHomeAddress ?? "",
+          "current_gps": _currentPosition != null ? "${_currentPosition!.latitude},${_currentPosition!.longitude}" : "",
         }),
-      ).timeout(const Duration(seconds: 90));
+      ).timeout(const Duration(seconds: 18));
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -381,14 +727,10 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
     } catch (_) {}
 
     if (generatedAnswer == null || generatedAnswer.isEmpty) {
-      generatedAnswer = "### 📍 Connection Notice\n\n"
-          "The cloud assistant encountered a delay. Please try resending your inquiry.";
+      generatedAnswer = "I am actively monitoring **${widget.activeCity}**! Whether you want real-time transit schedules, hidden sights, or route assistance, tell me what you need.";
     }
 
-    final bool autoDoc = hasDoc ||
-        generatedAnswer.contains("Day 1") ||
-        generatedAnswer.contains("Day 2") ||
-        generatedAnswer.contains("### Day");
+    final bool autoDoc = hasDoc || generatedAnswer.contains("Day 1") || generatedAnswer.contains("Day 2");
 
     if (mounted) {
       setState(() {
@@ -397,6 +739,9 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
           "text": generatedAnswer,
           "has_document": autoDoc,
           "export_source_text": generatedAnswer,
+          "is_lost_card": false,
+          "is_motion_card": false,
+          "target_destination": _savedHomeAddress ?? widget.activeCity,
         });
         _isTyping = false;
       });
@@ -416,215 +761,11 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
     });
   }
 
-  Future<String?> _generateAndDownloadPdf(String textContent, {bool autoShare = false}) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Formatting & generating PDF document...")),
-    );
-
-    try {
-      final doc = pw.Document();
-      final cleanLines = textContent.split('\n');
-
-      doc.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(32),
-          header: (pw.Context context) {
-            return pw.Container(
-              padding: const pw.EdgeInsets.only(bottom: 8),
-              margin: const pw.EdgeInsets.only(bottom: 16),
-              decoration: const pw.BoxDecoration(
-                border: pw.Border(bottom: pw.BorderSide(width: 1, color: PdfColors.grey300)),
-              ),
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text("TouristOS Travel Intelligence Dossier",
-                      style: pw.TextStyle(
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.blue800,
-                          fontSize: 10)),
-                  pw.Text(DateTime.now().toIso8601String().substring(0, 10),
-                      style: const pw.TextStyle(color: PdfColors.grey700, fontSize: 10)),
-                ],
-              ),
-            );
-          },
-          build: (pw.Context context) {
-            final List<pw.Widget> pdfContent = [];
-
-            for (String line in cleanLines) {
-              final trimmed = line.trim();
-              if (trimmed.isEmpty) {
-                pdfContent.add(pw.SizedBox(height: 6));
-                continue;
-              }
-
-              if (trimmed.startsWith("### ")) {
-                pdfContent.add(
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.only(top: 10, bottom: 4),
-                    child: pw.Text(
-                      trimmed.replaceFirst("### ", ""),
-                      style: pw.TextStyle(
-                          fontSize: 14,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.blue900),
-                    ),
-                  ),
-                );
-              } else if (trimmed.startsWith("## ")) {
-                pdfContent.add(
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.only(top: 14, bottom: 6),
-                    child: pw.Text(
-                      trimmed.replaceFirst("## ", ""),
-                      style: pw.TextStyle(
-                          fontSize: 16,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.black),
-                    ),
-                  ),
-                );
-              } else {
-                final sanitized = trimmed.replaceAll("**", "");
-                pdfContent.add(
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.only(bottom: 3),
-                    child: pw.Text(sanitized,
-                        style: const pw.TextStyle(fontSize: 10.5, lineSpacing: 2)),
-                  ),
-                );
-              }
-            }
-
-            return pdfContent;
-          },
-        ),
-      );
-
-      final pdfBytes = await doc.save();
-      final fileName = "${widget.activeCity.replaceAll(' ', '_')}_Itinerary.pdf";
-
-      Directory? targetDir;
-      if (Platform.isAndroid) {
-        targetDir = Directory("/storage/emulated/0/Download");
-        if (!await targetDir.exists()) {
-          targetDir = await getExternalStorageDirectory();
-        }
-      } else {
-        targetDir = await getApplicationDocumentsDirectory();
-      }
-
-      final filePath = "${targetDir!.path}/$fileName";
-      final file = File(filePath);
-      await file.writeAsBytes(pdfBytes);
-
-      if (autoShare) {
-        Share.shareXFiles([XFile(filePath)], text: "TouristOS Itinerary: $fileName");
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF16A34A),
-            duration: const Duration(seconds: 5),
-            content: Text("✓ PDF Saved to Downloads:\n$fileName"),
-            action: SnackBarAction(
-              label: "SHARE",
-              textColor: Colors.white,
-              onPressed: () {
-                Share.shareXFiles([XFile(filePath)], text: "TouristOS Dossier: $fileName");
-              },
-            ),
-          ),
-        );
-      }
-      return filePath;
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("PDF generation notice: $e")),
-        );
-      }
-      return null;
-    }
-  }
-
-  Future<String?> _generateAndDownloadDoc(String textContent, {bool autoShare = false}) async {
-    try {
-      final fileName = "${widget.activeCity.replaceAll(' ', '_')}_Itinerary.doc";
-      final htmlContent = """
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head><title>$fileName</title>
-      <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #0F172A; }
-        h2 { color: #1E3A8A; font-size: 16pt; border-bottom: 2px solid #2563EB; padding-bottom: 4px; }
-        h3 { color: #1E40AF; font-size: 13pt; margin-top: 14px; }
-        p { margin: 6px 0; }
-        .footer { font-size: 9pt; color: #64748B; margin-top: 30px; border-top: 1px solid #CBD5E1; padding-top: 8px; }
-      </style>
-      </head>
-      <body>
-        <h2>TouristOS Travel Intelligence: ${widget.activeCity}</h2>
-        ${textContent.replaceAll('\n', '<br/>').replaceAll('**', '<b>').replaceAll('### ', '<h3>').replaceAll('## ', '<h2>')}
-        <div class='footer'>Generated by TouristOS Guide Assistant • ${DateTime.now().toString()}</div>
-      </body>
-      </html>
-      """;
-
-      Directory? targetDir;
-      if (Platform.isAndroid) {
-        targetDir = Directory("/storage/emulated/0/Download");
-        if (!await targetDir.exists()) {
-          targetDir = await getExternalStorageDirectory();
-        }
-      } else {
-        targetDir = await getApplicationDocumentsDirectory();
-      }
-
-      final filePath = "${targetDir!.path}/$fileName";
-      final file = File(filePath);
-      await file.writeAsString(htmlContent);
-
-      if (autoShare) {
-        Share.shareXFiles([XFile(filePath)], text: "TouristOS Document: $fileName");
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF2563EB),
-            duration: const Duration(seconds: 5),
-            content: Text("✓ DOC Saved to Downloads:\n$fileName"),
-            action: SnackBarAction(
-              label: "SHARE",
-              textColor: Colors.white,
-              onPressed: () {
-                Share.shareXFiles([XFile(filePath)], text: "TouristOS Document: $fileName");
-              },
-            ),
-          ),
-        );
-      }
-      return filePath;
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Document generation notice: $e")),
-        );
-      }
-      return null;
-    }
-  }
-
   Widget _renderConciergeTypography(String text, bool isUser) {
     if (isUser) {
       return SelectableText(
         text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 15.0,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0.1,
-          height: 1.45,
-        ),
+        style: const TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w500, height: 1.4),
       );
     }
 
@@ -634,43 +775,21 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
     for (String line in lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) {
-        renderedWidgets.add(const SizedBox(height: 8));
+        renderedWidgets.add(const SizedBox(height: 6));
         continue;
       }
 
       if (trimmed.startsWith("### ")) {
         renderedWidgets.add(
           Padding(
-            padding: const EdgeInsets.only(top: 14, bottom: 6),
+            padding: const EdgeInsets.only(top: 10, bottom: 4),
             child: SelectableText(
               trimmed.replaceFirst("### ", ""),
-              style: const TextStyle(
-                fontSize: 17.0,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.3,
-              ),
+              style: const TextStyle(fontSize: 16.0, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
             ),
           ),
         );
-      } else if (trimmed.startsWith("## ")) {
-        renderedWidgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 8),
-            child: SelectableText(
-              trimmed.replaceFirst("## ", ""),
-              style: const TextStyle(
-                fontSize: 18.5,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF1E3A8A),
-                letterSpacing: -0.4,
-              ),
-            ),
-          ),
-        );
-      } else if (trimmed.startsWith("• ") ||
-          trimmed.startsWith("* ") ||
-          RegExp(r'^\d+\.\s').hasMatch(trimmed)) {
+      } else if (trimmed.startsWith("• ") || trimmed.startsWith("* ") || RegExp(r'^\d+\.\s').hasMatch(trimmed)) {
         final content = trimmed.replaceFirst(RegExp(r'^(•|\*|\d+\.)\s*'), '');
         final List<TextSpan> spans = [];
         final parts = content.split("**");
@@ -684,8 +803,8 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
               style: TextStyle(
                 fontWeight: isBold ? FontWeight.w800 : FontWeight.w400,
                 color: isBold ? const Color(0xFF0F172A) : const Color(0xFF334155),
-                fontSize: 14.5,
-                height: 1.55,
+                fontSize: 13.5,
+                height: 1.45,
               ),
             ),
           );
@@ -693,15 +812,11 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
 
         renderedWidgets.add(
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            padding: const EdgeInsets.only(left: 4, bottom: 4),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("• ",
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2563EB))),
+                const Text("• ", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
                 Expanded(child: SelectableText.rich(TextSpan(children: spans))),
               ],
             ),
@@ -720,8 +835,8 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
               style: TextStyle(
                 fontWeight: isBold ? FontWeight.w800 : FontWeight.w400,
                 color: isBold ? const Color(0xFF0F172A) : const Color(0xFF334155),
-                fontSize: 14.5,
-                height: 1.55,
+                fontSize: 13.5,
+                height: 1.45,
               ),
             ),
           );
@@ -729,186 +844,275 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
 
         renderedWidgets.add(
           Padding(
-            padding: const EdgeInsets.only(bottom: 5),
+            padding: const EdgeInsets.only(bottom: 4),
             child: SelectableText.rich(TextSpan(children: spans)),
           ),
         );
       }
     }
 
-    return SelectionArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: renderedWidgets,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: renderedWidgets,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final topInset = MediaQuery.of(context).padding.top;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final systemNavInset = MediaQuery.of(context).padding.bottom;
 
-    final double bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final double systemNavInset = MediaQuery.of(context).padding.bottom;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A), size: 24),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFBFDBFE)),
-              ),
-              child: const Icon(Icons.support_agent_rounded, size: 20, color: Color(0xFF2563EB)),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _t("header_title"),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15.0,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.2,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    _t("header_subtitle"),
-                    style: const TextStyle(fontSize: 11.0, color: Color(0xFF64748B)),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
       ),
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: Column(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        body: Column(
           children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            // Borderless Canvas Header ($y = 0$)
+            Container(
+              padding: EdgeInsets.fromLTRB(16, topInset + 6, 16, 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                border: Border(bottom: BorderSide(color: const Color(0xFFE2E8F0).withOpacity(0.6), width: 0.6)),
+              ),
               child: Row(
                 children: [
-                  ActionChip(
-                    backgroundColor: const Color(0xFFEFF6FF),
-                    side: const BorderSide(color: Color(0xFFBFDBFE)),
-                    label: Text(_t("chip_plan"),
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1D4ED8))),
-                    onPressed: () => _sendMessage(
-                        "I'd like to plan a trip to ${widget.activeCity}. Can you guide me?"),
+                  InkWell(
+                    onTap: () => Navigator.of(context).pop(),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 0.6),
+                      ),
+                      child: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A), size: 20),
+                    ),
                   ),
-                  const SizedBox(width: 6),
-                  ActionChip(
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    label: Text(_t("chip_season"),
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
-                    onPressed: () => _sendMessage(
-                        "What is the best season and month to visit ${widget.activeCity}, and what is the typical temperature?"),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("CONCIERGE & RADAR", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 0.5)),
+                        Text(_t("header_title"), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 6),
-                  ActionChip(
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    label: Text(_t("chip_scams"),
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
-                    onPressed: () => _sendMessage(
-                        "What tourist scams, safety warnings, or taxi traps should I watch out for in ${widget.activeCity}?"),
-                  ),
-                  const SizedBox(width: 6),
-                  ActionChip(
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    label: Text(_t("chip_food"),
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
-                    onPressed: () => _sendMessage(
-                        "What are the most famous local dishes and iconic budget eateries in ${widget.activeCity}?"),
-                  ),
-                  const SizedBox(width: 6),
-                  ActionChip(
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    label: Text(_t("chip_hotels"),
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
-                    onPressed: () => _sendMessage(
-                        "Recommend safe hotels in ${widget.activeCity} categorised by Budget, Mid-Range, and Luxury tiers."),
-                  ),
-                  const SizedBox(width: 6),
-                  ActionChip(
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    label: Text(_t("chip_transit"),
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
-                    onPressed: () => _sendMessage(
-                        "Explain local transit options, train passes, and navigation hacks for ${widget.activeCity}."),
+                  IconButton(
+                    tooltip: "Set Base Hotel",
+                    icon: const Icon(Icons.home_work_rounded, color: Color(0xFF2563EB), size: 22),
+                    onPressed: _showSetHomeBaseDialog,
                   ),
                 ],
               ),
             ),
 
+            // Interactive Quick Command Chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Row(
+                children: [
+                  // Prominent Live Motion Radar Trigger
+                  ActionChip(
+                    backgroundColor: const Color(0xFFEFF6FF),
+                    side: const BorderSide(color: Color(0xFFBFDBFE), width: 0.8),
+                    label: Row(
+                      children: [
+                        const Icon(Icons.radar_rounded, size: 14, color: Color(0xFF2563EB)),
+                        const SizedBox(width: 4),
+                        Text(_t("chip_where_am_i"), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: Color(0xFF1E40AF))),
+                      ],
+                    ),
+                    onPressed: _executeLiveMotionRadar,
+                  ),
+                  const SizedBox(width: 6),
+                  ActionChip(
+                    backgroundColor: const Color(0xFFFEF2F2),
+                    side: const BorderSide(color: Color(0xFFFCA5A5)),
+                    label: Text(_t("chip_lost"), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: Color(0xFFDC2626))),
+                    onPressed: () => _sendMessage("I am lost! Please guide me and help me find my way."),
+                  ),
+                  const SizedBox(width: 6),
+                  ActionChip(
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    label: Text(_t("chip_plan"), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                    onPressed: () => _sendMessage("I'd like to plan a trip to ${widget.activeCity}. Can you guide me?"),
+                  ),
+                  const SizedBox(width: 6),
+                  ActionChip(
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    label: Text(_t("chip_food"), style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155))),
+                    onPressed: () => _sendMessage("What are the most famous local dishes and budget eateries in ${widget.activeCity}?"),
+                  ),
+                ],
+              ),
+            ),
+
+            // Dialogue & Motion Stream
             Expanded(
               child: ListView.builder(
                 controller: _scrollCtrl,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 itemCount: _messages.length,
                 itemBuilder: (ctx, i) {
                   final msg = _messages[i];
                   final isUser = msg["role"] == "user";
-                  final hasDoc = msg["has_document"] == true;
-                  final docSource = msg["export_source_text"] ?? msg["text"] ?? "";
+                  final isMotionCard = msg["is_motion_card"] == true;
+                  final isLostCard = msg["is_lost_card"] == true;
                   final isSpeaking = _currentlySpeakingIndex == i;
 
                   return Align(
                     alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                     child: Container(
-                      margin: const EdgeInsets.only(bottom: 14),
-                      constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.92),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.90),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: isUser ? const Color(0xFF2563EB) : Colors.white,
-                        borderRadius: BorderRadius.circular(16),
+                        color: isUser
+                            ? const Color(0xFF2563EB)
+                            : (isMotionCard ? const Color(0xFFF0FDF4) : (isLostCard ? const Color(0xFFFFFBEB) : Colors.white)),
+                        borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isUser ? const Color(0xFF1D4ED8) : const Color(0xFFE2E8F0),
+                          color: isUser
+                              ? const Color(0xFF1D4ED8)
+                              : (isMotionCard ? const Color(0xFFBBF7D0) : (isLostCard ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0))),
+                          width: 0.6,
                         ),
                         boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
+                          BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 6, offset: const Offset(0, 2)),
                         ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _renderConciergeTypography(msg["text"], isUser),
-                          if (!isUser) ...[
+
+                          // Live Radar Telemetry Cockpit Card
+                          if (isMotionCard && !isUser) ...[
                             const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFF86EFAC), width: 0.8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: const [
+                                      Icon(Icons.navigation_rounded, color: Color(0xFF16A34A), size: 16),
+                                      SizedBox(width: 6),
+                                      Text("TRANSIT RADAR LOCK", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: Color(0xFF15803D))),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 46,
+                                    child: ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF16A34A),
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      ),
+                                      icon: const Icon(Icons.map_rounded, size: 16),
+                                      label: const Text("VIEW LIVE POSITION ON MAP", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                      onPressed: _openCurrentGpsOnMaps,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          if (isLostCard && !isUser) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFFCD34D)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (_savedHomeAddress != null && _savedHomeAddress!.isNotEmpty) ...[
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: 46,
+                                      child: ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF2563EB),
+                                          foregroundColor: Colors.white,
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                        ),
+                                        icon: const Icon(Icons.directions_walk_rounded, size: 18),
+                                        label: const Text("NAVIGATE HOME NOW (GPS)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                                        onPressed: () => _launchMapsNavigation(_savedHomeAddress!, isWalking: true),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                  ],
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: SizedBox(
+                                          height: 46,
+                                          child: OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: const Color(0xFF0F172A),
+                                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                            ),
+                                            icon: const Icon(Icons.my_location_rounded, size: 16, color: Color(0xFF2563EB)),
+                                            label: const Text("Current Pin", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                                            onPressed: _openCurrentGpsOnMaps,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: SizedBox(
+                                          height: 46,
+                                          child: ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF0F172A),
+                                              foregroundColor: Colors.white,
+                                              elevation: 0,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                            ),
+                                            icon: const Icon(Icons.share_location_rounded, size: 16),
+                                            label: const Text("Share SOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                                            onPressed: _shareRescueLocationViaWhatsApp,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          if (!isUser) ...[
+                            const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
@@ -916,142 +1120,37 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
                                   onTap: () => _toggleTts(i, msg["text"]),
                                   borderRadius: BorderRadius.circular(6),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: isSpeaking ? const Color(0xFFFEE2E2) : const Color(0xFFEFF6FF),
                                       borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                          color: isSpeaking ? const Color(0xFFFCA5A5) : const Color(0xFFBFDBFE)),
                                     ),
                                     child: Row(
-                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(
-                                          isSpeaking ? Icons.stop_circle_rounded : Icons.volume_up_rounded,
-                                          size: 13,
-                                          color: isSpeaking ? const Color(0xFFDC2626) : const Color(0xFF2563EB),
-                                        ),
+                                        Icon(isSpeaking ? Icons.stop_circle_rounded : Icons.volume_up_rounded, size: 13, color: isSpeaking ? const Color(0xFFDC2626) : const Color(0xFF2563EB)),
                                         const SizedBox(width: 4),
-                                        Text(
-                                          isSpeaking ? _t("stop_text") : _t("listen_text"),
-                                          style: TextStyle(
-                                            fontSize: 11.0,
-                                            color: isSpeaking ? const Color(0xFFDC2626) : const Color(0xFF2563EB),
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                                        Text(isSpeaking ? _t("stop_text") : _t("listen_text"), style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isSpeaking ? const Color(0xFFDC2626) : const Color(0xFF2563EB))),
                                       ],
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: 8),
                                 InkWell(
                                   onTap: () => _copyToClipboard(msg["text"]),
                                   borderRadius: BorderRadius.circular(6),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
                                     child: Row(
-                                      mainAxisSize: MainAxisSize.min,
                                       children: [
                                         const Icon(Icons.copy_rounded, size: 12, color: Color(0xFF64748B)),
                                         const SizedBox(width: 4),
-                                        Text(
-                                          _t("copy_text"),
-                                          style: const TextStyle(
-                                              fontSize: 11.0,
-                                              color: Color(0xFF64748B),
-                                              fontWeight: FontWeight.bold),
-                                        ),
+                                        Text(_t("copy_text"), style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
                                       ],
                                     ),
                                   ),
                                 ),
                               ],
-                            ),
-                          ],
-                          if (hasDoc && !isUser) ...[
-                            const SizedBox(height: 14),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.download_for_offline_rounded,
-                                          color: Color(0xFF2563EB), size: 18),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        _t("export_header"),
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 13.0,
-                                            color: Color(0xFF0F172A)),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xFFDC2626),
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(vertical: 11),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                            elevation: 0,
-                                          ),
-                                          onPressed: () => _generateAndDownloadPdf(docSource, autoShare: false),
-                                          icon: const Icon(Icons.picture_as_pdf_rounded, size: 15),
-                                          label: Text(_t("btn_pdf"),
-                                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xFF2563EB),
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(vertical: 11),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                            elevation: 0,
-                                          ),
-                                          onPressed: () => _generateAndDownloadDoc(docSource, autoShare: false),
-                                          icon: const Icon(Icons.description_rounded, size: 15),
-                                          label: Text(_t("btn_docx"),
-                                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF16A34A),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 10),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          elevation: 0,
-                                        ),
-                                        onPressed: () => _generateAndDownloadPdf(docSource, autoShare: true),
-                                        icon: const Icon(Icons.share_rounded, size: 15),
-                                        label: Text(_t("btn_share"),
-                                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
                             ),
                           ],
                         ],
@@ -1067,60 +1166,33 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
                 padding: const EdgeInsets.only(left: 20, bottom: 8),
                 child: Row(
                   children: [
-                    const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Color(0xFF2563EB))),
+                    const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2563EB))),
                     const SizedBox(width: 8),
-                    Text(_t("typing_prefix"),
-                        style: const TextStyle(
-                            fontSize: 12.0,
-                            color: Color(0xFF64748B),
-                            fontWeight: FontWeight.w500)),
+                    Text(_t("typing_prefix"), style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
 
+            // Standardized Chat Input Cockpit
             Container(
-              padding: EdgeInsets.fromLTRB(
-                14,
-                10,
-                14,
-                bottomInset > 0 ? bottomInset + 10 : systemNavInset + 12,
-              ),
+              padding: EdgeInsets.fromLTRB(14, 8, 14, bottomInset > 0 ? bottomInset + 8 : systemNavInset + 12),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+                border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 0.6)),
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _msgCtrl,
-                      style: const TextStyle(fontSize: 15.0, color: Color(0xFF0F172A)),
+                      style: const TextStyle(fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: _isListening ? "Listening... speak now..." : _t("hint_text"),
-                        hintStyle: TextStyle(
-                          fontSize: 13.0,
-                          color: _isListening ? const Color(0xFFDC2626) : const Color(0xFF94A3B8),
-                          fontWeight: _isListening ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide(
-                              color: _isListening ? const Color(0xFFEF4444) : const Color(0xFFE2E8F0)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
-                        ),
+                        hintText: _isListening ? "Listening..." : _t("hint_text"),
+                        hintStyle: TextStyle(fontSize: 12.5, color: _isListening ? const Color(0xFFDC2626) : const Color(0xFF94A3B8)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 0.6)),
                         filled: true,
-                        fillColor: _isListening ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         isDense: true,
                       ),
                       onSubmitted: _sendMessage,
@@ -1129,22 +1201,18 @@ class _TouristOSChatScreenState extends State<TouristOSChatScreen>
                   const SizedBox(width: 6),
                   CircleAvatar(
                     backgroundColor: _isListening ? const Color(0xFFDC2626) : const Color(0xFFEFF6FF),
-                    radius: 20,
+                    radius: 19,
                     child: IconButton(
-                      icon: Icon(
-                        _isListening ? Icons.mic : Icons.mic_none_rounded,
-                        size: 20,
-                        color: _isListening ? Colors.white : const Color(0xFF2563EB),
-                      ),
+                      icon: Icon(_isListening ? Icons.mic : Icons.mic_none_rounded, size: 18, color: _isListening ? Colors.white : const Color(0xFF2563EB)),
                       onPressed: _toggleListening,
                     ),
                   ),
                   const SizedBox(width: 6),
                   CircleAvatar(
                     backgroundColor: const Color(0xFF2563EB),
-                    radius: 20,
+                    radius: 19,
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_upward_rounded, size: 20, color: Colors.white),
+                      icon: const Icon(Icons.arrow_upward_rounded, size: 18, color: Colors.white),
                       onPressed: () => _sendMessage(_msgCtrl.text),
                     ),
                   ),

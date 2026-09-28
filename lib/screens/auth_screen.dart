@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
@@ -13,7 +14,7 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends State<AuthScreen> with WidgetsBindingObserver {
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _passwordCtrl = TextEditingController();
@@ -25,17 +26,19 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _errorMessage;
 
   StreamSubscription<AuthState>? _authSubscription;
+  Timer? _googleTimeoutTimer;
 
   @override
   void initState() {
     super.initState();
-    // Listen for OAuth deep link callbacks from Google
+    WidgetsBinding.instance.addObserver(this);
+
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final AuthChangeEvent event = data.event;
       final Session? session = data.session;
 
       if (event == AuthChangeEvent.signedIn && session != null) {
-        // Clear any old guest flag
+        _googleTimeoutTimer?.cancel();
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('omni_is_guest_mode', false);
 
@@ -51,7 +54,22 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isGoogleLoading) {
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted && _isGoogleLoading && Supabase.instance.client.auth.currentUser == null) {
+          setState(() {
+            _isGoogleLoading = false;
+          });
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _googleTimeoutTimer?.cancel();
     _authSubscription?.cancel();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
@@ -60,15 +78,26 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _handleGoogleSignIn() async {
+    HapticFeedback.selectionClick();
     setState(() {
       _isGoogleLoading = true;
       _errorMessage = null;
     });
 
+    _googleTimeoutTimer?.cancel();
+    _googleTimeoutTimer = Timer(const Duration(seconds: 35), () {
+      if (mounted && _isGoogleLoading) {
+        setState(() {
+          _isGoogleLoading = false;
+          _errorMessage = "Sign-in timed out or was cancelled. Please try again.";
+        });
+      }
+    });
+
     try {
       await AuthService.signInWithGoogle();
-      // The onAuthStateChange stream listener above will catch the return and navigate
     } catch (e) {
+      _googleTimeoutTimer?.cancel();
       if (mounted) {
         setState(() {
           _isGoogleLoading = false;
@@ -79,6 +108,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _handleEmailAuth() async {
+    HapticFeedback.selectionClick();
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text.trim();
     final name = _nameCtrl.text.trim();
@@ -155,6 +185,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _handleContinueAsGuest() async {
+    HapticFeedback.selectionClick();
     setState(() => _isLoading = true);
     await AuthService.setGuestMode(true);
     widget.onLoginSuccess();
@@ -162,12 +193,35 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      body: SafeArea(
-        child: Center(
+    final topPadding = MediaQuery.of(context).padding.top;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.light,
+        systemStatusBarContrastEnforced: false,
+        systemNavigationBarContrastEnforced: false,
+        systemNavigationBarDividerColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0F172A),
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            // Uses precise system padding without duplicate artificial offsets
+            padding: EdgeInsets.fromLTRB(24, topPadding + 14, 24, bottomPadding + 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -178,9 +232,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     shape: BoxShape.circle,
                     border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
                   ),
-                  child: const Icon(Icons.travel_explore_rounded, color: Color(0xFF60A5FA), size: 44),
+                  child: const Icon(Icons.travel_explore_rounded, color: Color(0xFF60A5FA), size: 42),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 const Text(
                   "Omni TouristOS",
                   style: TextStyle(
@@ -196,7 +250,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: Colors.white70),
                 ),
-                const SizedBox(height: 26),
+                const SizedBox(height: 22),
 
                 Container(
                   padding: const EdgeInsets.all(22),
@@ -446,7 +500,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 22),
+                const SizedBox(height: 20),
 
                 TextButton.icon(
                   onPressed: (_isLoading || _isGoogleLoading) ? null : _handleContinueAsGuest,

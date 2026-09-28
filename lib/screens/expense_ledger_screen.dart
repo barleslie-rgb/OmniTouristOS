@@ -122,7 +122,7 @@ class _ExpenseLedgerScreenState extends State<ExpenseLedgerScreen> {
               20,
               14,
               20,
-              keyboardInset > 0 ? keyboardInset + 20 : systemBottomInset + 24,
+              keyboardInset > 0 ? keyboardInset + 20 : (systemBottomInset > 0 ? systemBottomInset + 16 : 24),
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -198,7 +198,7 @@ class _ExpenseLedgerScreenState extends State<ExpenseLedgerScreen> {
                           controller: titleCtrl,
                           decoration: InputDecoration(
                             labelText: "What was it for?",
-                            hintText: "e.g. Food and alcohol",
+                            hintText: "e.g. Food and snacks",
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12)),
                             contentPadding: const EdgeInsets.symmetric(
@@ -555,7 +555,8 @@ class _ExpenseLedgerScreenState extends State<ExpenseLedgerScreen> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
+        scrolledUnderElevation: 0,
+        backgroundColor: const Color(0xFFF8FAFC), // Unified seamless edge
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A), size: 24),
           onPressed: () => Navigator.of(context).pop(),
@@ -593,9 +594,10 @@ class _ExpenseLedgerScreenState extends State<ExpenseLedgerScreen> {
               child: CircularProgressIndicator(color: Color(0xFF2563EB)))
           : RefreshIndicator(
               onRefresh: _refreshData,
+              color: const Color(0xFF2563EB),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 84),
+                padding: EdgeInsets.fromLTRB(16, 16, 16, (bottomInset > 0 ? bottomInset : 14) + 84),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

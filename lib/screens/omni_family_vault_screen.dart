@@ -110,7 +110,7 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
               "id": "DOC-102",
               "category": "Aadhaar Card",
               "name": "Traveler Self",
-              "number": "[Aadhaar Redacted]",
+              "number": "[Redacted ID]",
               "expiry": "Lifetime",
               "country": "India",
               "imagePaths": <String>[],
@@ -156,7 +156,7 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text("Add Family Member Profile", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -167,18 +167,18 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
                 decoration: InputDecoration(
                   labelText: "Full Name or Label",
                   hintText: "e.g. Aarav, Anaya, Father",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   isDense: true,
                 ),
                 autofocus: true,
               ),
               const SizedBox(height: 14),
-              const Text("Relationship / Role", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+              const Text("Relationship / Role", style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 value: selectedRole,
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
@@ -198,7 +198,11 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
               onPressed: () {
                 final newName = nameCtrl.text.trim();
                 if (newName.isNotEmpty && !_familyMembers.any((m) => m["name"] == newName)) {
@@ -213,7 +217,7 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
                 }
                 Navigator.pop(ctx);
               },
-              child: const Text("CREATE PROFILE"),
+              child: const Text("Create Profile"),
             ),
           ],
         ),
@@ -343,24 +347,25 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
   void _showExportFormatDialog() {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 24 + MediaQuery.of(ctx).padding.bottom),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Row(
               children: [
-                Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF2563EB), size: 24),
+                Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF2563EB), size: 22),
                 SizedBox(width: 8),
-                Text("Export Family Dossier", style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                Text("Export Family Dossier", style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
               ],
             ),
             const SizedBox(height: 6),
             const Text(
               "Select your preferred format to compile all registered credentials across your travel party.",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 18),
             SizedBox(
@@ -370,14 +375,15 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFDC2626),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () {
                   Navigator.pop(ctx);
                   _processDossierExport("pdf");
                 },
                 icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
-                label: const Text("EXPORT AS PDF (.PDF)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                label: const Text("EXPORT AS PDF (.PDF)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
               ),
             ),
             const SizedBox(height: 10),
@@ -388,14 +394,15 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () {
                   Navigator.pop(ctx);
                   _processDossierExport("docx");
                 },
                 icon: const Icon(Icons.description_rounded, size: 18),
-                label: const Text("EXPORT AS WORD (.DOCX)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                label: const Text("EXPORT AS WORD (.DOCX)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
               ),
             ),
           ],
@@ -490,41 +497,14 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
     }
   }
 
-  Map<String, List<Map<String, dynamic>>> _groupDocuments(List<Map<String, dynamic>> docs) {
-    final Map<String, List<Map<String, dynamic>>> groups = {
-      "Identity & Government Proofs": [],
-      "Visas & Permits": [],
-      "Travel Tickets": [],
-      "Accommodations": [],
-      "Insurance & Other Documents": [],
-    };
-
-    for (var d in docs) {
-      final cat = (d["category"] ?? "").toString().toLowerCase();
-      if (cat.contains("passport") || cat.contains("aadhaar") || cat.contains("pan") || cat.contains("national") || cat.contains("driver")) {
-        groups["Identity & Government Proofs"]!.add(d);
-      } else if (cat.contains("visa") || cat.contains("permit")) {
-        groups["Visas & Permits"]!.add(d);
-      } else if (cat.contains("ticket") || cat.contains("flight") || cat.contains("train") || cat.contains("cruise") || cat.contains("bus")) {
-        groups["Travel Tickets"]!.add(d);
-      } else if (cat.contains("hotel") || cat.contains("stay") || cat.contains("voucher")) {
-        groups["Accommodations"]!.add(d);
-      } else {
-        groups["Insurance & Other Documents"]!.add(d);
-      }
-    }
-
-    return groups;
-  }
-
   Widget _buildValidityBadge(String? expiry) {
     if (expiry == null || expiry.isEmpty || expiry.toLowerCase().contains("lifetime") || expiry.toLowerCase().contains("permanent")) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: const [
-          Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
+          Icon(Icons.check_circle_rounded, size: 13, color: Color(0xFF16A34A)),
           SizedBox(width: 4),
-          Text("Valid: Lifetime", style: TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.bold)),
+          Text("Valid: Lifetime", style: TextStyle(fontSize: 10.5, color: Color(0xFF16A34A), fontWeight: FontWeight.bold)),
         ],
       );
     }
@@ -537,18 +517,18 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Icon(Icons.error_rounded, size: 14, color: Colors.red),
+            Icon(Icons.error_rounded, size: 13, color: Colors.red),
             SizedBox(width: 4),
-            Text("EXPIRED", style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold)),
+            Text("EXPIRED", style: TextStyle(fontSize: 10.5, color: Colors.red, fontWeight: FontWeight.bold)),
           ],
         );
       } else {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
+            const Icon(Icons.check_circle_rounded, size: 13, color: Color(0xFF16A34A)),
             const SizedBox(width: 4),
-            Text("Valid: $expiry", style: const TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.bold)),
+            Text("Valid: $expiry", style: const TextStyle(fontSize: 10.5, color: Color(0xFF16A34A), fontWeight: FontWeight.bold)),
           ],
         );
       }
@@ -556,9 +536,9 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
+          const Icon(Icons.check_circle_rounded, size: 13, color: Color(0xFF16A34A)),
           const SizedBox(width: 4),
-          Text("Valid: $expiry", style: const TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.bold)),
+          Text("Valid: $expiry", style: const TextStyle(fontSize: 10.5, color: Color(0xFF16A34A), fontWeight: FontWeight.bold)),
         ],
       );
     }
@@ -568,11 +548,11 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
     final List<dynamic> paths = (doc["imagePaths"] as List<dynamic>?) ?? [];
     if (paths.isNotEmpty && File(paths.first.toString()).existsSync()) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         child: Image.file(
           File(paths.first.toString()),
-          width: 96,
-          height: 110,
+          width: 90,
+          height: 105,
           fit: BoxFit.cover,
         ),
       );
@@ -580,22 +560,14 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
 
     final cat = (doc["category"] ?? "").toString().toLowerCase();
 
-    // 1. Indian Passport Navy Booklet Graphic
     if (cat.contains("passport")) {
       return Container(
-        width: 96,
-        height: 110,
+        width: 90,
+        height: 105,
         decoration: BoxDecoration(
           color: const Color(0xFF0C1E3D),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFD4AF37), width: 1.2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.12),
-              blurRadius: 4,
-              offset: const Offset(1, 2),
-            ),
-          ],
         ),
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         child: Column(
@@ -613,7 +585,7 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
                 ),
               ],
             ),
-            const Icon(Icons.account_balance_rounded, color: Color(0xFFD4AF37), size: 28),
+            const Icon(Icons.account_balance_rounded, color: Color(0xFFD4AF37), size: 26),
             Column(
               children: const [
                 Text(
@@ -629,29 +601,21 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
       );
     }
 
-    // 2. Indian Aadhaar Card Graphic
     if (cat.contains("aadhaar") || cat.contains("adhar")) {
       return Container(
-        width: 96,
-        height: 110,
+        width: 90,
+        height: 105,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 4,
-              offset: const Offset(1, 2),
-            ),
-          ],
         ),
         child: Column(
           children: [
             Container(
               height: 4,
               decoration: const BoxDecoration(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
                 gradient: LinearGradient(
                   colors: [Color(0xFFFF9933), Colors.white, Color(0xFF138808)],
                 ),
@@ -674,30 +638,30 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
                   Row(
                     children: [
                       Container(
-                        width: 22,
-                        height: 28,
+                        width: 20,
+                        height: 26,
                         decoration: BoxDecoration(
                           color: const Color(0xFFE2E8F0),
                           borderRadius: BorderRadius.circular(3),
                         ),
-                        child: const Icon(Icons.person_rounded, size: 16, color: Color(0xFF64748B)),
+                        child: const Icon(Icons.person_rounded, size: 15, color: Color(0xFF64748B)),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(height: 4, width: 35, color: const Color(0xFFCBD5E1)),
+                            Container(height: 4, width: 32, color: const Color(0xFFCBD5E1)),
                             const SizedBox(height: 3),
-                            Container(height: 3, width: 25, color: const Color(0xFFE2E8F0)),
+                            Container(height: 3, width: 22, color: const Color(0xFFE2E8F0)),
                             const SizedBox(height: 3),
-                            Container(height: 3, width: 30, color: const Color(0xFFE2E8F0)),
+                            Container(height: 3, width: 28, color: const Color(0xFFE2E8F0)),
                           ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   const Center(
                     child: Text(
                       "मेरा आधार, मेरी पहचान",
@@ -712,13 +676,12 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
       );
     }
 
-    // 3. General National ID
     return Container(
-      width: 96,
-      height: 110,
+      width: 90,
+      height: 105,
       decoration: BoxDecoration(
         color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFF94A3B8), width: 1.2),
       ),
       padding: const EdgeInsets.all(6),
@@ -732,7 +695,7 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
               const Text("IDENTITY CARD", style: TextStyle(fontSize: 6, fontWeight: FontWeight.bold)),
             ],
           ),
-          const Icon(Icons.credit_card_rounded, size: 30, color: Color(0xFF2563EB)),
+          const Icon(Icons.credit_card_rounded, size: 28, color: Color(0xFF2563EB)),
           Text(
             doc["category"] ?? "Document",
             style: const TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
@@ -752,365 +715,403 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
       orElse: () => {"name": _activeMember, "role": "Family"},
     );
 
+    final double topInset = MediaQuery.of(context).padding.top;
     final double bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A), size: 24),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text(
-          "Family Travel Vault",
-          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: Color(0xFF0F172A)),
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)))
-          : Stack(
-              children: [
-                RefreshIndicator(
-                  onRefresh: _loadVaultData,
-                  child: ListView(
-                    padding: EdgeInsets.only(bottom: 90 + bottomInset),
-                    children: [
-                      // --- TOP HORIZONTAL FAMILY PROFILES CAROUSEL ---
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        body: Column(
+          children: [
+            // Luxury Borderless Header ($y = 0$)
+            Container(
+              padding: EdgeInsets.fromLTRB(16, topInset + 6, 16, 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                border: Border(bottom: BorderSide(color: const Color(0xFFE2E8F0).withOpacity(0.6), width: 0.6)),
+              ),
+              child: Row(
+                children: [
+                  InkWell(
+                    onTap: () => Navigator.of(context).pop(),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
                         color: Colors.white,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  ..._familyMembers.map((m) {
-                                    final name = m["name"]!;
-                                    final role = m["role"]!;
-                                    final isSel = _activeMember == name;
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 0.6),
+                      ),
+                      child: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A), size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text("CREDENTIAL REPOSITORY", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 0.5)),
+                        Text("Family Travel Vault", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A))),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: "Export Master Dossier",
+                    icon: const Icon(Icons.cloud_download_rounded, color: Color(0xFF2563EB), size: 22),
+                    onPressed: _showExportFormatDialog,
+                  ),
+                ],
+              ),
+            ),
 
-                                    IconData roleIcon = Icons.person_rounded;
-                                    Color roleColor = const Color(0xFF2563EB);
-                                    if (role == "Child") {
-                                      roleIcon = Icons.child_care_rounded;
-                                      roleColor = const Color(0xFFEA580C);
-                                    } else if (role == "Spouse") {
-                                      roleIcon = Icons.favorite_rounded;
-                                      roleColor = const Color(0xFFE11D48);
-                                    } else if (role == "Parent") {
-                                      roleIcon = Icons.elderly_rounded;
-                                      roleColor = const Color(0xFF0D9488);
-                                    }
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)))
+                  : Stack(
+                      children: [
+                        RefreshIndicator(
+                          onRefresh: _loadVaultData,
+                          color: const Color(0xFF2563EB),
+                          child: ListView(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                            children: [
+                              // Family Member Profiles Carousel
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    ..._familyMembers.map((m) {
+                                      final name = m["name"]!;
+                                      final role = m["role"]!;
+                                      final isSel = _activeMember == name;
 
-                                    return Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(20),
-                                        onTap: () => setState(() => _activeMember = name),
-                                        child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 200),
-                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: isSel ? const Color(0xFF2563EB) : Colors.white,
-                                            borderRadius: BorderRadius.circular(20),
-                                            border: Border.all(
-                                              color: isSel ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1),
-                                              width: 1.2,
-                                            ),
-                                            boxShadow: isSel
-                                                ? [
-                                                    BoxShadow(
-                                                      color: const Color(0xFF2563EB).withOpacity(0.25),
-                                                      blurRadius: 6,
-                                                      offset: const Offset(0, 2),
-                                                    ),
-                                                  ]
-                                                : null,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Icon(roleIcon, size: 16, color: isSel ? Colors.white : roleColor),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                name,
-                                                style: TextStyle(
-                                                  color: isSel ? Colors.white : const Color(0xFF1E293B),
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 13,
-                                                ),
+                                      IconData roleIcon = Icons.person_rounded;
+                                      Color roleColor = const Color(0xFF2563EB);
+                                      if (role == "Child") {
+                                        roleIcon = Icons.child_care_rounded;
+                                        roleColor = const Color(0xFFEA580C);
+                                      } else if (role == "Spouse") {
+                                        roleIcon = Icons.favorite_rounded;
+                                        roleColor = const Color(0xFFE11D48);
+                                      } else if (role == "Parent") {
+                                        roleIcon = Icons.elderly_rounded;
+                                        roleColor = const Color(0xFF0D9488);
+                                      }
+
+                                      return Padding(
+                                        padding: const EdgeInsets.only(right: 8),
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(20),
+                                          onTap: () => setState(() => _activeMember = name),
+                                          child: AnimatedContainer(
+                                            duration: const Duration(milliseconds: 200),
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                            decoration: BoxDecoration(
+                                              color: isSel ? const Color(0xFF2563EB) : Colors.white,
+                                              borderRadius: BorderRadius.circular(20),
+                                              border: Border.all(
+                                                color: isSel ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                                                width: 0.8,
                                               ),
-                                            ],
+                                              boxShadow: isSel
+                                                  ? [
+                                                      BoxShadow(
+                                                        color: const Color(0xFF2563EB).withOpacity(0.25),
+                                                        blurRadius: 6,
+                                                        offset: const Offset(0, 2),
+                                                      ),
+                                                    ]
+                                                  : null,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(roleIcon, size: 15, color: isSel ? Colors.white : roleColor),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  name,
+                                                  style: TextStyle(
+                                                    color: isSel ? Colors.white : const Color(0xFF1E293B),
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12.5,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    );
-                                  }),
-                                  // Add Profile Action Pill
-                                  InkWell(
-                                    onTap: _addFamilyMemberDialog,
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
-                                        color: Colors.white,
-                                      ),
-                                      child: Row(
-                                        children: const [
-                                          Icon(Icons.add_rounded, size: 18, color: Color(0xFF2563EB)),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            "Add",
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF2563EB),
+                                      );
+                                    }).toList(),
+                                    InkWell(
+                                      onTap: _addFamilyMemberDialog,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+                                          color: Colors.white,
+                                        ),
+                                        child: Row(
+                                          children: const [
+                                            Icon(Icons.add_rounded, size: 16, color: Color(0xFF2563EB)),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              "Add Profile",
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF2563EB),
+                                              ),
                                             ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Offline Sandboxing & Export Trigger Banner
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0FDF4),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: const Color(0xFFBBF7D0), width: 0.6),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.check_circle_rounded, size: 18, color: Color(0xFF16A34A)),
+                                    const SizedBox(width: 10),
+                                    const Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            "Offline Encrypted Sandboxing",
+                                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                                          ),
+                                          Text(
+                                            "Your documents stay safe on this device.",
+                                            style: TextStyle(fontSize: 10, color: Color(0xFF15803D)),
                                           ),
                                         ],
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Offline Sandboxing & Export Trigger Banner
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        color: const Color(0xFFF0FDF4),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.check_circle_rounded, size: 18, color: Color(0xFF16A34A)),
-                            const SizedBox(width: 10),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Offline Encrypted Sandboxing",
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
-                                  ),
-                                  Text(
-                                    "Your documents stay safe on this device.",
-                                    style: TextStyle(fontSize: 10.5, color: Color(0xFF15803D)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            InkWell(
-                              onTap: _showExportFormatDialog,
-                              child: Row(
-                                children: const [
-                                  Icon(Icons.cloud_download_rounded, size: 18, color: Color(0xFF2563EB)),
-                                  SizedBox(width: 5),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Export Dossier",
-                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+                                    InkWell(
+                                      onTap: _showExportFormatDialog,
+                                      child: Row(
+                                        children: const [
+                                          Icon(Icons.cloud_download_rounded, size: 16, color: Color(0xFF2563EB)),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            "Export Dossier",
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+                                          ),
+                                        ],
                                       ),
-                                      Text(
-                                        "Create a secure file",
-                                        style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B)),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Presentation Deck Panoramic Banner
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-                        child: InkWell(
-                          onTap: _openAirportMasterDeck,
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            height: 125,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              image: const DecorationImage(
-                                image: NetworkImage("https://images.unsplash.com/photo-1542296332-2e4473faf563?auto=format&fit=crop&w=1000&q=80"),
-                                fit: BoxFit.cover,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.12),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.black.withOpacity(0.85),
-                                    Colors.black.withOpacity(0.35),
-                                  ],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                ),
-                              ),
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: const [
-                                      Text(
-                                        "Airport & Hotel Presentation Deck",
-                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                                      ),
-                                      SizedBox(height: 3),
-                                      Text(
-                                        "Show your travel documents quickly to authorities.\nPinch-to-zoom multi-page view.",
-                                        style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.3),
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        Text(
-                                          "Open Deck",
-                                          style: TextStyle(color: Color(0xFF0F172A), fontSize: 11.5, fontWeight: FontWeight.bold),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Airport Presentation Deck Hero Banner
+                              InkWell(
+                                onTap: _openAirportMasterDeck,
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  height: 115,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(20),
+                                    image: const DecorationImage(
+                                      image: NetworkImage("https://images.unsplash.com/photo-1542296332-2e4473faf563?auto=format&fit=crop&w=1000&q=80"),
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(20),
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.black.withOpacity(0.85),
+                                          Colors.black.withOpacity(0.35),
+                                        ],
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: const [
+                                            Text(
+                                              "Airport & Hotel Presentation Deck",
+                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14.5),
+                                            ),
+                                            SizedBox(height: 2),
+                                            Text(
+                                              "Pinch-to-zoom multi-page view for authorities.",
+                                              style: TextStyle(color: Colors.white70, fontSize: 11),
+                                            ),
+                                          ],
                                         ),
-                                        SizedBox(width: 4),
-                                        Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFF0F172A)),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: const [
+                                              Text(
+                                                "Open Deck",
+                                                style: TextStyle(color: Color(0xFF0F172A), fontSize: 11, fontWeight: FontWeight.bold),
+                                              ),
+                                              SizedBox(width: 4),
+                                              Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFF0F172A)),
+                                            ],
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // Section Title Row
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Documents for $_activeMember (${currentDocs.length})",
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-                            ),
-                            if (_activeMember != "Self")
-                              InkWell(
-                                onTap: () => _deleteFamilyMember(_activeMember),
-                                child: const Text("Delete Profile", style: TextStyle(color: Colors.red, fontSize: 11.5, fontWeight: FontWeight.bold)),
-                              ),
-                          ],
-                        ),
-                      ),
-
-                      if (currentDocs.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 40),
-                          child: Center(
-                            child: Column(
-                              children: [
-                                Icon(Icons.folder_open_rounded, size: 48, color: Colors.grey.shade400),
-                                const SizedBox(height: 8),
-                                Text(
-                                  "No documents saved yet for $_activeMember (${activeMemberObj['role']})",
-                                  style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13),
                                 ),
-                                const SizedBox(height: 4),
-                                const Text("Tap '+ Add Document' below to register credentials.", style: TextStyle(color: Colors.grey, fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                        )
-                      else ...[
-                        for (int i = 0; i < currentDocs.length; i++)
-                          _buildVisualDocumentCard(currentDocs[i], i),
-                      ],
+                              ),
 
-                      if (_bookmarkedPlaces.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
+                              const SizedBox(height: 16),
+
+                              // Section Header Row
                               Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Icon(Icons.bookmark_rounded, color: Color(0xFF059669), size: 18),
-                                  const SizedBox(width: 6),
                                   Text(
-                                    "Saved Places & Venues (${_bookmarkedPlaces.length})",
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                    "Documents for $_activeMember (${currentDocs.length})",
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                                   ),
+                                  if (_activeMember != "Self")
+                                    InkWell(
+                                      onTap: () => _deleteFamilyMember(_activeMember),
+                                      child: const Text("Delete Profile", style: TextStyle(color: Color(0xFFDC2626), fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                    ),
                                 ],
                               ),
-                              Text(
-                                "From Guide Chat",
-                                style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+
+                              const SizedBox(height: 10),
+
+                              if (currentDocs.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 36),
+                                  child: Center(
+                                    child: Column(
+                                      children: [
+                                        Icon(Icons.folder_open_rounded, size: 44, color: Colors.grey.shade400),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          "No documents saved yet for $_activeMember (${activeMemberObj['role']})",
+                                          style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12.5),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        const Text("Tap '+ Add Document' below to register credentials.", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else ...[
+                                for (int i = 0; i < currentDocs.length; i++)
+                                  _buildVisualDocumentCard(currentDocs[i], i),
+                              ],
+
+                              if (_bookmarkedPlaces.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.bookmark_rounded, color: Color(0xFF059669), size: 18),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          "Saved Places & Venues (${_bookmarkedPlaces.length})",
+                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      "From Guide Chat",
+                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                ..._bookmarkedPlaces.map((place) => _buildBookmarkedPlaceCard(place)).toList(),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (_isExporting)
+                          Container(
+                            color: Colors.black54,
+                            child: const Center(
+                              child: Card(
+                                child: Padding(
+                                  padding: EdgeInsets.all(20),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(color: Color(0xFF2563EB)),
+                                      SizedBox(height: 14),
+                                      Text("Compiling Master Dossier...", style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                        ..._bookmarkedPlaces.map((place) => _buildBookmarkedPlaceCard(place)).toList(),
                       ],
-                    ],
-                  ),
-                ),
-                if (_isExporting)
-                  Container(
-                    color: Colors.black54,
-                    child: const Center(
-                      child: Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(),
-                              SizedBox(height: 14),
-                              Text("Compiling Master Dossier...", style: TextStyle(fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ),
-                      ),
                     ),
-                  ),
-              ],
             ),
-      floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset : 8),
-        child: FloatingActionButton.extended(
-          backgroundColor: const Color(0xFF2563EB),
-          foregroundColor: Colors.white,
-          elevation: 3,
-          onPressed: _initiateDocumentUpload,
-          icon: const Icon(Icons.add_photo_alternate_rounded),
-          label: Text("Add Document to $_activeMember", style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        bottomNavigationBar: Container(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, bottomInset > 0 ? bottomInset + 8 : 14),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 0.6)),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              icon: const Icon(Icons.add_photo_alternate_rounded, size: 18),
+              label: Text(
+                "ADD DOCUMENT TO ${_activeMember.toUpperCase()}",
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+              ),
+              onPressed: _initiateDocumentUpload,
+            ),
+          ),
         ),
       ),
     );
@@ -1118,23 +1119,23 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
 
   Widget _buildVisualDocumentCard(Map<String, dynamic> doc, int index) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 0.6),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.015),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: () => _openSingleDocumentInspection(doc),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -1154,7 +1155,7 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
                             child: Text(
                               doc["category"] ?? "Document",
                               style: const TextStyle(
-                                fontSize: 16,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w800,
                                 color: Color(0xFF0F172A),
                               ),
@@ -1163,7 +1164,8 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
                           ),
                           PopupMenuButton<String>(
                             padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.more_vert_rounded, size: 20, color: Color(0xFF64748B)),
+                            icon: const Icon(Icons.more_vert_rounded, size: 18, color: Color(0xFF64748B)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                             onSelected: (val) {
                               if (val == "inspect") {
                                 _openSingleDocumentInspection(doc);
@@ -1177,26 +1179,26 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
                             itemBuilder: (context) => [
                               const PopupMenuItem(value: "inspect", child: Text("Inspect / Zoom", style: TextStyle(fontSize: 12.5))),
                               const PopupMenuItem(value: "copy", child: Text("Copy Number", style: TextStyle(fontSize: 12.5))),
-                              const PopupMenuItem(value: "delete", child: Text("Delete", style: TextStyle(color: Colors.red, fontSize: 12.5))),
+                              const PopupMenuItem(value: "delete", child: Text("Delete", style: TextStyle(color: Color(0xFFDC2626), fontSize: 12.5))),
                             ],
                           ),
                         ],
                       ),
                       Text(
                         "Holder: ${doc['name']}",
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
                           Text(
                             doc["number"] ?? "XXXX XXXX XXXX",
                             style: const TextStyle(
-                              fontSize: 15,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                               fontFamily: "monospace",
                               color: Color(0xFF0F172A),
-                              letterSpacing: 1.0,
+                              letterSpacing: 0.8,
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -1205,18 +1207,18 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
                               Clipboard.setData(ClipboardData(text: doc["number"] ?? ""));
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Copied!")));
                             },
-                            child: const Icon(Icons.copy_rounded, size: 13, color: Color(0xFF94A3B8)),
+                            child: const Icon(Icons.copy_rounded, size: 12, color: Color(0xFF94A3B8)),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
                           _buildValidityBadge(doc['expiry']),
                           const SizedBox(width: 8),
                           Text(
                             "|  Issuing: ${doc['country']}",
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                            style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -1238,43 +1240,46 @@ class _OmniFamilyVaultScreenState extends State<OmniFamilyVaultScreen> {
     final mapsUrl = place["maps_url"] ?? "";
     final id = place["id"] ?? "";
 
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 0.6),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: const Color(0xFF059669).withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.restaurant_rounded, color: Color(0xFF059669), size: 18),
+              child: const Icon(Icons.restaurant_rounded, color: Color(0xFF059669), size: 16),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                  Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                   const SizedBox(height: 2),
-                  Text("$category • $area", style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+                  Text("$category • $area", style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                 ],
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.navigation_rounded, color: Color(0xFF2563EB), size: 20),
+              icon: const Icon(Icons.navigation_rounded, color: Color(0xFF2563EB), size: 18),
               tooltip: "Navigate",
               onPressed: () => _launchMaps(mapsUrl, name),
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: Colors.grey, size: 20),
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.grey, size: 18),
               tooltip: "Remove Bookmark",
               onPressed: () => _deleteBookmark(id),
             ),
@@ -1336,7 +1341,7 @@ class _DocumentReviewScreenState extends State<DocumentReviewScreen> {
     _selectedCategory = widget.categories.first;
     _nameCtrl.text = "Traveler ${widget.member}";
     if (_selectedCategory == "Aadhaar Card") {
-      _numberCtrl.text = "[Aadhaar Redacted]";
+      _numberCtrl.text = "[Redacted ID]";
       _expiryCtrl.text = "Lifetime";
     } else if (_selectedCategory == "PAN Card") {
       _numberCtrl.text = "ABCDE1234F";
@@ -1392,31 +1397,32 @@ class _DocumentReviewScreenState extends State<DocumentReviewScreen> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
+        scrolledUnderElevation: 0,
+        backgroundColor: const Color(0xFFF8FAFC),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A), size: 24),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           "Review Credentials (${widget.member})",
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: Color(0xFF0F172A)),
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.check_rounded, color: Color(0xFF16A34A), size: 28),
+            icon: const Icon(Icons.check_rounded, color: Color(0xFF16A34A), size: 26),
             onPressed: _saveAndConfirm,
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + MediaQuery.of(context).padding.bottom),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + MediaQuery.of(context).padding.bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               height: 250,
               width: double.infinity,
-              decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(16)),
               clipBehavior: Clip.antiAlias,
               child: Stack(
                 children: [
@@ -1462,11 +1468,11 @@ class _DocumentReviewScreenState extends State<DocumentReviewScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Document Covers & Pages (${_pagePaths.length})", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                Text("Document Pages (${_pagePaths.length})", style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
                 TextButton.icon(
                   onPressed: _appendMorePages,
-                  icon: const Icon(Icons.add_photo_alternate_rounded, size: 16),
-                  label: const Text("+ Add Next Page", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.add_photo_alternate_rounded, size: 15),
+                  label: const Text("+ Add Page", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -1486,10 +1492,10 @@ class _DocumentReviewScreenState extends State<DocumentReviewScreen> {
                           child: Container(
                             decoration: BoxDecoration(
                               border: Border.all(color: isSelected ? const Color(0xFF2563EB) : Colors.grey.shade300, width: isSelected ? 2 : 1),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(8),
                               child: Stack(
                                 children: [
                                   Image.file(File(_pagePaths[i]), height: 74, width: 74, fit: BoxFit.cover),
@@ -1533,17 +1539,17 @@ class _DocumentReviewScreenState extends State<DocumentReviewScreen> {
             ),
             const Divider(height: 24),
 
-            const Text("Document Specifications", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const Text("Document Specifications", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
             const SizedBox(height: 10),
 
             DropdownButtonFormField<String>(
               value: _selectedCategory,
               decoration: InputDecoration(
                 labelText: "Document Category",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 isDense: true,
               ),
-              items: widget.categories.map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13)))).toList(),
+              items: widget.categories.map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12.5)))).toList(),
               onChanged: (val) {
                 if (val != null) {
                   setState(() {
@@ -1563,7 +1569,7 @@ class _DocumentReviewScreenState extends State<DocumentReviewScreen> {
               controller: _nameCtrl,
               decoration: InputDecoration(
                 labelText: "Full Legal Name on Document",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 isDense: true,
               ),
             ),
@@ -1574,7 +1580,7 @@ class _DocumentReviewScreenState extends State<DocumentReviewScreen> {
               decoration: InputDecoration(
                 labelText: "Document / Serial Number",
                 hintText: _selectedCategory == "Aadhaar Card" ? "12 Digit ID" : "e.g. Passport or PAN number",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 isDense: true,
               ),
             ),
@@ -1587,7 +1593,7 @@ class _DocumentReviewScreenState extends State<DocumentReviewScreen> {
                     controller: _countryCtrl,
                     decoration: InputDecoration(
                       labelText: "Issuing Country",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       isDense: true,
                     ),
                   ),
@@ -1599,7 +1605,7 @@ class _DocumentReviewScreenState extends State<DocumentReviewScreen> {
                     decoration: InputDecoration(
                       labelText: "Expiry Date (YYYY-MM-DD)",
                       hintText: "e.g. 2032-05-14",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       isDense: true,
                     ),
                   ),
@@ -1610,18 +1616,19 @@ class _DocumentReviewScreenState extends State<DocumentReviewScreen> {
 
             SizedBox(
               width: double.infinity,
-              height: 48,
+              height: 46,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF16A34A),
+                  backgroundColor: const Color(0xFF2563EB),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: _saveAndConfirm,
-                icon: const Icon(Icons.verified_user_rounded),
+                icon: const Icon(Icons.verified_user_rounded, size: 18),
                 label: Text(
                   "SECURE ${_pagePaths.length} PAGE(S) TO ${widget.member.toUpperCase()}'S VAULT",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
               ),
             ),
@@ -1837,6 +1844,7 @@ class _AirportPresentationDeckState extends State<AirportPresentationDeck> {
   Widget build(BuildContext context) {
     final currentDoc = widget.deck[_currentIndex];
     final List<dynamic> paths = (currentDoc["imagePaths"] as List<dynamic>?) ?? [];
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -1844,6 +1852,7 @@ class _AirportPresentationDeckState extends State<AirportPresentationDeck> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 24),
           onPressed: () => Navigator.of(context).pop(),
@@ -1956,7 +1965,7 @@ class _AirportPresentationDeckState extends State<AirportPresentationDeck> {
               ),
             ),
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+            padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + (bottomInset > 0 ? bottomInset : 8)),
             color: const Color(0xFF0F172A),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -9,7 +9,12 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'touristos_explorer_screen.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import '../widgets/metallic_embossed_button.dart';
 
 class PaperPilotScreen extends StatefulWidget {
   final String language;
@@ -31,8 +36,12 @@ class PaperPilotScreen extends StatefulWidget {
   State<PaperPilotScreen> createState() => _PaperPilotScreenState();
 }
 
-class _PaperPilotScreenState extends State<PaperPilotScreen>
-    with WidgetsBindingObserver {
+class _PaperPilotScreenState extends State<PaperPilotScreen> with WidgetsBindingObserver {
+  final GlobalKey _reportRepaintKey = GlobalKey();
+  final ScrollController _scrollController = ScrollController();
+
+  late String _activeLanguage;
+
   File? _selectedFile;
   Uint8List? _fileBytes;
   String? _selectedFileName;
@@ -45,8 +54,6 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
   List<String> _suggestions = [];
   String? _errorMessage;
 
-  bool _showQuickTip = true;
-
   final TextEditingController _chatController = TextEditingController();
   final List<Map<String, String>> _chatMessages = [];
   bool _isChatLoading = false;
@@ -54,115 +61,45 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
   static FlutterTts? _activeTtsInstance;
   late FlutterTts _flutterTts;
   bool _isSpeaking = false;
+  bool _isMuted = false;
+  List<dynamic> _availableTtsVoices = [];
+
   late stt.SpeechToText _speech;
+  bool _isListening = false;
+  String _spokenWordsBuffer = "";
 
   final ImagePicker _imagePicker = ImagePicker();
-
   List<Map<String, dynamic>> _recentScans = [];
-  static const String _scansStorageKey = "paper_pilot_recent_scans";
+  static const String _scansStorageKey = "paper_pilot_recent_scans_v5";
 
-  static const Map<String, Map<String, String>> _dict = {
-    "English": {
-      "title": "Document Audit",
-      "subtitle": "Audit legal liabilities, examine land records (7/12), notices, and stamp papers.",
-      "quick_tip_title": "Quick Tip",
-      "quick_tip_body": "Make sure the document is well lit and placed on a flat surface for the best results.",
-      "camera": "Camera",
-      "pick_file": "Pick File",
-      "scan_btn": "Scan & Audit Document",
-      "auditing_btn": "Auditing Document...",
-      "recent_scans": "Recent Scans",
-      "clear_all": "Clear All",
-      "ready_size": "Size: {size} KB • Ready for Forensic Audit",
-      "forensic_report": "Forensic Audit & Legal Breakdown",
-      "audio_ready": "Audio Reader Ready",
-      "audio_active": "Audio playback active...",
-      "listen": "Listen",
-      "stop": "Mute / Stop",
-      "report_copied": "Report copied to clipboard.",
-      "directives": "Explore & Verify Directives:",
-      "chat_header": "Inquiry & Dialogue:",
-      "chat_hint": "Ask anything about this document...",
-      "select_error": "Please select or capture a document first.",
-    },
-    "Marathi": {
-      "title": "दस्तऐवज तपासणी",
-      "subtitle": "कायदेशीर कागदपत्रे, ७/१२, नोटिसा, मुद्रांक व पुरावे तपासा.",
-      "quick_tip_title": "महत्त्वाची टीप",
-      "quick_tip_body": "उत्तम तपासणीसाठी कागदपत्र सपाट पृष्ठभागावर ठेवा आणि पुरेसा प्रकाश असल्याची खात्री करा.",
-      "camera": "कॅमेरा",
-      "pick_file": "फाईल निवडा",
-      "scan_btn": "कागदपत्र स्कॅन व तपासणी करा",
-      "auditing_btn": "तपासणी सुरू आहे...",
-      "recent_scans": "अलीकडील स्कॅन",
-      "clear_all": "सर्व हटवा",
-      "ready_size": "आकार: {size} KB • तपासणीसाठी सज्ज",
-      "forensic_report": "न्यायवैद्यक व कायदेशीर तपासणी अहवाल",
-      "audio_ready": "वाचून ऐकण्यासाठी तयार",
-      "audio_active": "वाचन सुरू आहे...",
-      "listen": "ऐका (Speak)",
-      "stop": "थांबवा (Mute)",
-      "report_copied": "अहवाल कॉपी केला.",
-      "directives": "पुढील मार्गदर्शक सूचना:",
-      "chat_header": "कागदपत्र संवाद व प्रश्नोत्तरे:",
-      "chat_hint": "या कागदपत्राबद्दल कोणताही प्रश्न विचारा...",
-      "select_error": "कृपया आधी कागदपत्र निवडा किंवा फोटो काढा.",
-    },
-    "Hindi": {
-      "title": "दस्तावेज़ फोरेंसिक ऑडिट",
-      "subtitle": "कानूनी दस्तावेज, 7/12, नोटिस और स्टाम्प पेपर की जांच करें।",
-      "quick_tip_title": "त्वरित सलाह",
-      "quick_tip_body": "सर्वोत्तम परिणामों के लिए दस्तावेज़ को समतल सतह पर रखें और पर्याप्त रोशनी सुनिश्चित करें।",
-      "camera": "कैमरा",
-      "pick_file": "फ़ाइल चुनें",
-      "scan_btn": "दस्तावेज़ स्कैन और जांचें",
-      "auditing_btn": "जांच चल रही है...",
-      "recent_scans": "हाल के स्कैन",
-      "clear_all": "सभी हटाएं",
-      "ready_size": "आकार: {size} KB • ऑडिट के लिए तैयार",
-      "forensic_report": "फोरेंसिक ऑडिट और कानूनी विश्लेषण",
-      "audio_ready": "ऑडियो सुनने के लिए तैयार",
-      "audio_active": "ऑडियो चल रहा है...",
-      "listen": "रिपोर्ट सुनें",
-      "stop": "म्यूट / बंद करें",
-      "report_copied": "रिपोर्ट कॉपी की गई।",
-      "directives": "आगे के निर्देश व सुझाव:",
-      "chat_header": "दस्तावेज़ पूछताछ व संवाद:",
-      "chat_hint": "इस दस्तावेज़ के बारे में कुछ भी पूछें...",
-      "select_error": "कृपया पहले दस्तावेज़ चुनें या फोटो लें।",
-    },
-    "Gujarati": {
-      "title": "ફોરેન્સિક દસ્તાવેજ તપાસ",
-      "subtitle": "કાનૂની દસ્તાવેજો, 7/12, નોટિસ અને સ્ટેમ્પ પેપરનું નિરીક્ષણ કરો.",
-      "quick_tip_title": "ઝડપી ટીપ",
-      "quick_tip_body": "શ્રેષ્ઠ પરિણામો માટે દસ્તાવેજ સપાટ સપાટી પર રાખો અને પૂરતો પ્રકાશ હોવાની ખાતરી કરો.",
-      "camera": "કેમેરા",
-      "pick_file": "ફાઇલ પસંદ કરો",
-      "scan_btn": "દસ્તાવેજ સ્કેન અને તપાસ કરો",
-      "auditing_btn": "તપાસ ચાલુ છે...",
-      "recent_scans": "તાજેતરના સ્કેન",
-      "clear_all": "બધું સાફ કરો",
-      "ready_size": "કદ: {size} KB • તપાસ માટે તૈયાર",
-      "forensic_report": "ફોરેન્સિક ઑડિટ અને કાનૂની અહેવાલ",
-      "audio_ready": "ઓડિયો સાંભળવા માટે તૈયાર",
-      "audio_active": "ઓડિયો ચાલુ છે...",
-      "listen": "સાંભળો",
-      "stop": "બંધ કરો",
-      "report_copied": "અહેવાલ કોપી કર્યો.",
-      "directives": "આગળની માર્ગદર્શિકા:",
-      "chat_header": "દસ્તાવેજ પ્રશ્નોત્તરી:",
-      "chat_hint": "આ દસ્તાવેજ વિશે કંઈપણ પૂછો...",
-      "select_error": "કૃપા કરીને પહેલા દસ્તાવેજ પસંદ કરો.",
-    },
-  };
-
-  String _t(String key) {
-    final lang = widget.language.trim();
-    if (_dict.containsKey(lang) && _dict[lang]!.containsKey(key)) {
-      return _dict[lang]![key]!;
-    }
-    return _dict["English"]![key] ?? key;
-  }
+  final List<Map<String, String>> _supportedLanguages = [
+    {"name": "Marathi (मराठी)", "locale": "mr-IN", "group": "Indian Regional"},
+    {"name": "Hindi (हिंदी)", "locale": "hi-IN", "group": "Indian Regional"},
+    {"name": "Gujarati (ગુજરાતી)", "locale": "gu-IN", "group": "Indian Regional"},
+    {"name": "Tamil (தமிழ்)", "locale": "ta-IN", "group": "Indian Regional"},
+    {"name": "Telugu (తెలుగు)", "locale": "te-IN", "group": "Indian Regional"},
+    {"name": "Bengali (বাংলা)", "locale": "bn-IN", "group": "Indian Regional"},
+    {"name": "Kannada (ಕನ್ನಡ)", "locale": "kn-IN", "group": "Indian Regional"},
+    {"name": "Malayalam (മലയാളം)", "locale": "ml-IN", "group": "Indian Regional"},
+    {"name": "Punjabi (ਪੰਜਾਬੀ)", "locale": "pa-IN", "group": "Indian Regional"},
+    {"name": "Odia (ଓଡ଼ିଆ)", "locale": "or-IN", "group": "Indian Regional"},
+    {"name": "Urdu (اردو)", "locale": "ur-IN", "group": "Indian & Middle East"},
+    {"name": "English", "locale": "en-IN", "group": "Global"},
+    {"name": "Arabic (العربية)", "locale": "ar-SA", "group": "Middle East"},
+    {"name": "Persian (فارسی)", "locale": "fa-IR", "group": "Middle East"},
+    {"name": "Turkish (Türkçe)", "locale": "tr-TR", "group": "Middle East"},
+    {"name": "French (Français)", "locale": "fr-FR", "group": "European"},
+    {"name": "German (Deutsch)", "locale": "de-DE", "group": "European"},
+    {"name": "Spanish (Español)", "locale": "es-ES", "group": "European"},
+    {"name": "Italian (Italiano)", "locale": "it-IT", "group": "European"},
+    {"name": "Portuguese (Português)", "locale": "pt-PT", "group": "European"},
+    {"name": "Russian (Русский)", "locale": "ru-RU", "group": "European"},
+    {"name": "Japanese (日本語)", "locale": "ja-JP", "group": "Asian"},
+    {"name": "Korean (한국어)", "locale": "ko-KR", "group": "Asian"},
+    {"name": "Chinese (Simplified 中文)", "locale": "zh-CN", "group": "Asian"},
+    {"name": "Thai (ไทย)", "locale": "th-TH", "group": "Asian"},
+    {"name": "Vietnamese (Tiếng Việt)", "locale": "vi-VN", "group": "Asian"},
+  ];
 
   static void globalStopTts() {
     try {
@@ -173,10 +110,17 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
   @override
   void initState() {
     super.initState();
+    _activeLanguage = widget.language;
     WidgetsBinding.instance.addObserver(this);
     _initTts();
     _speech = stt.SpeechToText();
     _loadPersistedScans();
+
+    _chatMessages.add({
+      "sender": "ai",
+      "text": "Hello! I am Paper Pilot, your Grok-style document auditor and warm AI companion.\n\n"
+          "Upload or photograph any file (PDF, Excel, Word, video, audio, image) for a clean summary, or ask me any question directly."
+    });
   }
 
   Future<void> _loadPersistedScans() async {
@@ -202,22 +146,10 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
     final now = DateTime.now();
     final dateFormatted = "${_getMonthName(now.month)} ${now.day}, ${now.year}";
 
-    String docType = "Audit Report";
-    final lowerReport = report.toLowerCase();
-    if (lowerReport.contains("7/12") || lowerReport.contains("सातबारा")) {
-      docType = "7/12 Record";
-    } else if (lowerReport.contains("stamp") || lowerReport.contains("मुद्रांक")) {
-      docType = "Stamp Paper";
-    } else if (lowerReport.contains("notice") || lowerReport.contains("नोटीस")) {
-      docType = "Legal Notice";
-    } else if (lowerReport.contains("power of attorney") || lowerReport.contains("कुलमुखत्यारपत्र")) {
-      docType = "Power of Attorney";
-    }
-
     final newRecord = {
       "id": DateTime.now().millisecondsSinceEpoch.toString(),
       "name": fileName,
-      "type": docType,
+      "type": "Grok Summary",
       "date": dateFormatted,
       "report": report,
       "detected_destination": destination,
@@ -228,8 +160,8 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
     setState(() {
       _recentScans.removeWhere((item) => item["name"] == fileName);
       _recentScans.insert(0, newRecord);
-      if (_recentScans.length > 15) {
-        _recentScans = _recentScans.sublist(0, 15);
+      if (_recentScans.length > 25) {
+        _recentScans = _recentScans.sublist(0, 25);
       }
     });
 
@@ -237,34 +169,12 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
   }
 
   Future<void> _clearAllRecentScans() async {
-    final shouldClear = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text("Clear Scanned Records?", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        content: const Text("This will permanently clear your local scan history and saved forensic reports."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Clear All"),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldClear == true) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_scansStorageKey);
-      setState(() {
-        _recentScans.clear();
-      });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_scansStorageKey);
+    setState(() => _recentScans.clear());
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Scan history cleared.")),
+        const SnackBar(content: Text("Audit history cleared.")),
       );
     }
   }
@@ -277,7 +187,6 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
       _detectedDestination = item["detected_destination"];
       _suggestions = List<String>.from(item["suggestions"] ?? []);
       _errorMessage = null;
-      _chatMessages.clear();
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -293,7 +202,7 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
     return months[m - 1];
   }
 
-  void _initTts() {
+  Future<void> _initTts() async {
     _flutterTts = FlutterTts();
     _activeTtsInstance = _flutterTts;
 
@@ -312,75 +221,35 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
     _flutterTts.setErrorHandler((msg) {
       if (mounted) setState(() => _isSpeaking = false);
     });
+
+    try {
+      final voices = await _flutterTts.getVoices;
+      if (voices is List) _availableTtsVoices = voices;
+    } catch (_) {}
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      _stopSpeech();
-    }
-  }
-
-  Future<void> _configureTtsForLanguage() async {
-    final lang = widget.language.toLowerCase().trim();
-
-    final Map<String, String> localeMap = {
-      "marathi": "mr-IN",
-      "मराठी": "mr-IN",
-      "hindi": "hi-IN",
-      "हिंदी": "hi-IN",
-      "gujarati": "gu-IN",
-      "ગુજરાતી": "gu-IN",
-      "tamil": "ta-IN",
-      "தமிழ்": "ta-IN",
-      "telugu": "te-IN",
-      "తెలుగు": "te-IN",
-      "kannada": "kn-IN",
-      "ಕನ್ನಡ": "kn-IN",
-      "bengali": "bn-IN",
-      "বাংলা": "bn-IN",
-      "malayalam": "ml-IN",
-      "മലയാളം": "ml-IN",
-      "punjabi": "pa-IN",
-      "ਪੰਜਾਬੀ": "pa-IN",
-      "spanish": "es-ES",
-      "español": "es-ES",
-      "french": "fr-FR",
-      "français": "fr-FR",
-      "german": "de-DE",
-      "deutsch": "de-DE",
-      "arabic": "ar-SA",
-      "العربية": "ar-SA",
-      "english": "en-IN",
-    };
-
-    String selectedLocale = "en-US";
-    for (final entry in localeMap.entries) {
-      if (lang.contains(entry.key)) {
-        selectedLocale = entry.value;
-        break;
+  String _resolveLanguageLocaleTag(String langName) {
+    for (var l in _supportedLanguages) {
+      if (langName.toLowerCase().contains(l["name"]!.toLowerCase().split(' ').first)) {
+        return l["locale"]!;
       }
     }
-
-    await _flutterTts.setLanguage(selectedLocale);
-    await _flutterTts.setPitch(1.0);
-    await _flutterTts.setSpeechRate(0.48);
+    return "en-IN";
   }
 
-  @override
-  void didUpdateWidget(covariant PaperPilotScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.language != widget.language && _analysisReport != null) {
-      _stopSpeech();
-      _retranslateActiveReport();
-    }
+  Future<void> _applyWarmVoice(String localeTag) async {
+    await _flutterTts.setLanguage(localeTag);
+    await _flutterTts.setPitch(0.85);
+    await _flutterTts.setSpeechRate(0.50);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _stopSpeech();
+    _stopListening();
     _chatController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -388,23 +257,126 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
     try {
       await _flutterTts.stop();
     } catch (_) {}
-    if (mounted) {
-      setState(() => _isSpeaking = false);
-    }
+    if (mounted) setState(() => _isSpeaking = false);
   }
 
-  Future<void> _startSpeech() async {
-    if (_analysisReport == null || _analysisReport!.isEmpty) return;
+  Future<void> _speakText(String rawText) async {
+    if (_isMuted || rawText.trim().isEmpty) return;
     await _stopSpeech();
-    await _configureTtsForLanguage();
+    final locale = _resolveLanguageLocaleTag(_activeLanguage);
+    await _applyWarmVoice(locale);
 
-    final cleanSpoken = _analysisReport!
+    final cleanText = rawText
         .replaceAll(RegExp(r'[*#_`|]'), '')
-        .replaceAll(RegExp(r'🚨\s*\[.*?\]:'), 'Warning:')
         .trim();
 
     if (mounted) setState(() => _isSpeaking = true);
-    await _flutterTts.speak(cleanSpoken);
+    await _flutterTts.speak(cleanText);
+  }
+
+  Future<void> _toggleVoiceInput() async {
+    _stopSpeech();
+
+    if (_isListening) {
+      await _stopListening();
+      if (_spokenWordsBuffer.trim().isNotEmpty) {
+        _sendQuestion(_spokenWordsBuffer.trim());
+      }
+      return;
+    }
+
+    final available = await _speech.initialize(
+      onError: (val) {
+        if (mounted) setState(() => _isListening = false);
+      },
+      onStatus: (status) {
+        if (status == "done" || status == "notListening") {
+          if (mounted && _isListening) {
+            setState(() => _isListening = false);
+            if (_spokenWordsBuffer.trim().isNotEmpty) {
+              _sendQuestion(_spokenWordsBuffer.trim());
+            }
+          }
+        }
+      },
+    );
+
+    if (available) {
+      HapticFeedback.heavyImpact();
+      final localeTag = _resolveLanguageLocaleTag(_activeLanguage);
+      setState(() {
+        _isListening = true;
+        _spokenWordsBuffer = "";
+      });
+
+      _speech.listen(
+        localeId: localeTag,
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
+        onResult: (val) {
+          setState(() {
+            _spokenWordsBuffer = val.recognizedWords;
+            _chatController.text = val.recognizedWords;
+          });
+        },
+      );
+    }
+  }
+
+  Future<void> _stopListening() async {
+    if (_isListening) {
+      await _speech.stop();
+      if (mounted) setState(() => _isListening = false);
+    }
+  }
+
+  void _showLanguageSelectionDialog() {
+    _stopSpeech();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.translate_rounded, color: Color(0xFF2563EB), size: 22),
+            SizedBox(width: 8),
+            Text("Select Language", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 380,
+          child: ListView.separated(
+            itemCount: _supportedLanguages.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final lang = _supportedLanguages[i];
+              final isSel = _activeLanguage == lang["name"];
+
+              return ListTile(
+                dense: true,
+                title: Text(
+                  lang["name"]!,
+                  style: TextStyle(
+                    fontWeight: isSel ? FontWeight.w900 : FontWeight.bold,
+                    color: isSel ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                  ),
+                ),
+                subtitle: Text(lang["group"]!, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                trailing: isSel ? const Icon(Icons.check_circle_rounded, color: Color(0xFF2563EB), size: 18) : null,
+                onTap: () {
+                  setState(() => _activeLanguage = lang["name"]!);
+                  Navigator.pop(ctx);
+                  if (_analysisReport != null && (_fileBytes != null || _selectedFile != null)) {
+                    _analyzeDocument();
+                  }
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _captureFromCamera() async {
@@ -412,9 +384,9 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
     try {
       final XFile? photo = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 88,
+        maxWidth: 1800,
+        maxHeight: 1800,
+        imageQuality: 92,
       );
 
       if (photo != null) {
@@ -422,16 +394,14 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
         setState(() {
           _selectedFile = File(photo.path);
           _fileBytes = bytes;
-          _selectedFileName = photo.name.isNotEmpty
-              ? photo.name
-              : "Camera_Capture_${DateTime.now().millisecondsSinceEpoch}.jpg";
+          _selectedFileName = "Camera_${DateTime.now().millisecondsSinceEpoch}.jpg";
           _selectedFileSize = bytes.length;
           _isImageFile = true;
           _errorMessage = null;
         });
       }
     } catch (e) {
-      setState(() => _errorMessage = "Camera error: $e");
+      setState(() => _errorMessage = "Camera capture error: $e");
     }
   }
 
@@ -439,47 +409,43 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
     _stopSpeech();
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: [
-          'pdf',
-          'jpg',
-          'jpeg',
-          'png',
-          'webp',
-          'docx',
-          'xlsx',
-          'pptx',
-          'txt',
-          'csv'
-        ],
+        type: FileType.any,
         withData: true,
       );
 
       if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        final ext = (file.extension ?? "").toLowerCase();
+        final picked = result.files.first;
+        final ext = (picked.extension ?? "").toLowerCase();
         final isImg = ['jpg', 'jpeg', 'png', 'webp'].contains(ext);
 
-        setState(() {
-          _selectedFileName = file.name;
-          _selectedFileSize = file.size;
-          _fileBytes = file.bytes;
-          if (file.path != null) {
-            _selectedFile = File(file.path!);
+        Uint8List? bytes = picked.bytes;
+        File? nativeFile;
+
+        if (picked.path != null) {
+          nativeFile = File(picked.path!);
+          if (bytes == null || bytes.isEmpty) {
+            bytes = await nativeFile.readAsBytes();
           }
+        }
+
+        setState(() {
+          _selectedFileName = picked.name;
+          _selectedFileSize = bytes?.length ?? picked.size;
+          _fileBytes = bytes;
+          _selectedFile = nativeFile;
           _isImageFile = isImg;
           _errorMessage = null;
         });
       }
     } catch (e) {
-      setState(() => _errorMessage = "File selection error: $e");
+      setState(() => _errorMessage = "Document selection error: $e");
     }
   }
 
   Future<void> _analyzeDocument() async {
     _stopSpeech();
     if (_fileBytes == null && _selectedFile == null) {
-      setState(() => _errorMessage = _t("select_error"));
+      setState(() => _errorMessage = "Please select or capture a file first.");
       return;
     }
 
@@ -489,7 +455,6 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
       _analysisReport = null;
       _detectedDestination = null;
       _suggestions.clear();
-      _chatMessages.clear();
     });
 
     try {
@@ -497,37 +462,26 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
       final uri = Uri.parse("$cleanBaseUrl/api/v1/analyze-document");
 
       var request = http.MultipartRequest("POST", uri);
-      request.fields["target_language"] = widget.language;
+      request.fields["target_language"] = _activeLanguage;
 
-      if (_fileBytes != null) {
+      if (_fileBytes != null && _fileBytes!.isNotEmpty) {
         request.files.add(
-          http.MultipartFile.fromBytes(
-            'file',
-            _fileBytes!,
-            filename: _selectedFileName ?? "document.pdf",
-          ),
+          http.MultipartFile.fromBytes('file', _fileBytes!, filename: _selectedFileName ?? "document.pdf"),
         );
       } else if (_selectedFile != null) {
         request.files.add(
-          await http.MultipartFile.fromPath(
-            'file',
-            _selectedFile!.path,
-            filename: _selectedFileName ?? "document.pdf",
-          ),
+          await http.MultipartFile.fromPath('file', _selectedFile!.path, filename: _selectedFileName ?? "document.pdf"),
         );
       }
 
-      final streamedResponse =
-          await request.send().timeout(const Duration(seconds: 45));
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data["status"] == "success") {
           final resData = data["data"] ?? {};
-          final reportText = resData["actionable_advisory"] ??
-              data["raw_text"] ??
-              "Analysis completed.";
+          final reportText = resData["actionable_advisory"] ?? data["raw_text"] ?? "Analysis complete.";
           final detectedDest = resData["detected_destination"];
           final directives = List<String>.from(resData["suggestions"] ?? []);
 
@@ -535,55 +489,30 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
             _analysisReport = reportText;
             _detectedDestination = detectedDest;
             _suggestions = directives;
+            _chatMessages.add({
+              "sender": "ai",
+              "text": "✓ Completed Grok-style audit for **$_selectedFileName** in **$_activeLanguage**.\n\nReview the summary above or ask me any follow-up queries below."
+            });
           });
 
           await _saveScannedDocumentRecord(
-            fileName: _selectedFileName ?? "Scanned_Document.pdf",
+            fileName: _selectedFileName ?? "Audited_Document",
             report: reportText,
             destination: detectedDest,
             directives: directives,
           );
 
-          if (_detectedDestination != null &&
-              widget.onDestinationDiscovered != null) {
-            widget.onDestinationDiscovered!(_detectedDestination!);
+          if (!_isMuted) {
+            _speakText(reportText);
           }
         } else {
-          setState(() => _errorMessage =
-              data["message"] ?? "Analysis could not be completed.");
+          setState(() => _errorMessage = data["message"] ?? "Analysis failed.");
         }
       } else {
-        setState(() =>
-            _errorMessage = "Server returned error: ${response.statusCode}");
+        setState(() => _errorMessage = "Server error code: ${response.statusCode}");
       }
     } catch (e) {
-      setState(() => _errorMessage = "Scan error: $e");
-    } finally {
-      if (mounted) setState(() => _isAnalyzing = false);
-    }
-  }
-
-  Future<void> _retranslateActiveReport() async {
-    if (_analysisReport == null) return;
-    setState(() => _isAnalyzing = true);
-
-    try {
-      final cleanBaseUrl = widget.backendUrl.replaceAll(RegExp(r'/+$'), '');
-      final res = await http.post(
-        Uri.parse("$cleanBaseUrl/api/v1/translate-report"),
-        body: {
-          "report_text": _analysisReport!,
-          "target_language": widget.language,
-        },
-      ).timeout(const Duration(seconds: 25));
-
-      if (res.statusCode == 200) {
-        final d = jsonDecode(res.body);
-        if (d["status"] == "success") {
-          setState(() => _analysisReport = d["translated_report"]);
-        }
-      }
-    } catch (_) {
+      setState(() => _errorMessage = "Audit connection error: $e");
     } finally {
       if (mounted) setState(() => _isAnalyzing = false);
     }
@@ -591,8 +520,9 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
 
   Future<void> _sendQuestion(String query) async {
     _stopSpeech();
-    if (query.trim().isEmpty) return;
+    _stopListening();
     final userQ = query.trim();
+    if (userQ.isEmpty) return;
     _chatController.clear();
 
     setState(() {
@@ -600,316 +530,328 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
       _isChatLoading = true;
     });
 
+    _scrollToBottom();
+
     try {
       final cleanBaseUrl = widget.backendUrl.replaceAll(RegExp(r'/+$'), '');
       final res = await http.post(
         Uri.parse("$cleanBaseUrl/api/v1/ask-question"),
-        body: {
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
           "question": userQ,
-          "target_language": widget.language,
+          "target_language": _activeLanguage,
           "active_document_context": _analysisReport ?? "",
-        },
-      ).timeout(const Duration(seconds: 20));
+        }),
+      ).timeout(const Duration(seconds: 25));
 
       if (res.statusCode == 200) {
         final d = jsonDecode(res.body);
-        final reply = d["answer"] ?? "Query answered.";
+        final reply = d["answer"] ?? d["reply"] ?? "Understood.";
         setState(() {
           _chatMessages.add({"sender": "ai", "text": reply});
         });
+        if (!_isMuted) {
+          _speakText(reply);
+        }
       } else {
         setState(() {
-          _chatMessages.add({
-            "sender": "ai",
-            "text": "Server responded with code: ${res.statusCode}"
-          });
+          _chatMessages.add({"sender": "ai", "text": "Server responded with error ${res.statusCode}."});
         });
       }
     } catch (e) {
       setState(() {
-        _chatMessages.add({"sender": "ai", "text": "Notice: $e"});
+        _chatMessages.add({"sender": "ai", "text": "Connection timeout. Please retry."});
       });
     } finally {
       if (mounted) setState(() => _isChatLoading = false);
+      _scrollToBottom();
     }
   }
 
-  List<Widget> _renderGrokContent(String rawText) {
-    final List<Widget> widgets = [];
-    final lines = rawText.split("\n");
-    List<List<String>> tableBuffer = [];
-
-    void flushTable() {
-      if (tableBuffer.isEmpty) return;
-      final headers = tableBuffer.first;
-      final rows = tableBuffer.skip(1).toList();
-
-      widgets.add(
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFCBD5E1)),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Table(
-              border: TableBorder(
-                  horizontalInside:
-                      BorderSide(color: Colors.grey.shade200, width: 1)),
-              children: [
-                TableRow(
-                  decoration: const BoxDecoration(color: Color(0xFFF1F5F9)),
-                  children: headers
-                      .map((h) => Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            child: Text(
-                              h.trim(),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: Color(0xFF0F172A)),
-                            ),
-                          ))
-                      .toList(),
-                ),
-                ...rows.map(
-                  (r) => TableRow(
-                    children: r
-                        .map((c) => Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                              child: Text(
-                                c.trim(),
-                                style: const TextStyle(
-                                    fontSize: 15,
-                                    height: 1.45,
-                                    color: Color(0xFF1E293B)),
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-      tableBuffer = [];
-    }
-
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i].trimRight();
-      final trimmed = line.trim();
-
-      if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
-        if (RegExp(r'^\|[\s\-:|]+\|$').hasMatch(trimmed)) continue;
-        final cols = trimmed.split("|").where((c) => c.isNotEmpty).toList();
-        if (cols.isNotEmpty) {
-          tableBuffer.add(cols);
-          continue;
-        }
-      } else {
-        flushTable();
-      }
-
-      if (trimmed.isEmpty) {
-        widgets.add(const SizedBox(height: 8));
-        continue;
-      }
-
-      if (trimmed.contains("🚨") ||
-          trimmed.contains("[SUSPICIOUS / RISK]") ||
-          trimmed.contains("[धोका / कायदेशीर जोखीम]") ||
-          trimmed.contains("[जोखिम / कानूनी दायित्व]")) {
-        widgets.add(
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFF87171), width: 1.2),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("🚨 ", style: TextStyle(fontSize: 20)),
-                Expanded(
-                  child: Text(
-                    trimmed.replaceAll("🚨", "").trim(),
-                    style: const TextStyle(
-                        color: Color(0xFFB91C1C),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15.5,
-                        height: 1.45),
-                  ),
-                ),
-              ],
-            ),
-          ),
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
         );
-        continue;
       }
+    });
+  }
 
-      if (trimmed.startsWith("###") ||
-          trimmed.startsWith("##") ||
-          trimmed.startsWith("#")) {
-        final hTitle =
-            trimmed.replaceAll(RegExp(r'^#+\s*'), '').replaceAll("**", "");
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 6),
-            child: Text(
-              hTitle,
-              style: const TextStyle(
-                fontSize: 18.5,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.3,
+  void _openExportSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 16, 20, 24 + MediaQuery.of(ctx).padding.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(4)),
               ),
             ),
-          ),
-        );
-        continue;
-      }
-
-      if (trimmed.startsWith("•") ||
-          trimmed.startsWith("-") ||
-          trimmed.startsWith("*")) {
-        final rawBullet = trimmed.substring(1).trim();
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 16),
+            const Text(
+              "Export & Share Summary",
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 16),
+            Row(
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 3),
-                  child: Text("• ",
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2563EB))),
+                Expanded(
+                  child: MetallicEmbossedButton(
+                    label: "PRINT",
+                    icon: Icons.print_rounded,
+                    variant: MetallicVariant.cobaltBlue,
+                    height: 42,
+                    fontSize: 12,
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _printDirectly();
+                    },
+                  ),
                 ),
-                Expanded(child: _renderInlineBold(rawBullet)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: MetallicEmbossedButton(
+                    label: "SHARE PDF",
+                    icon: Icons.picture_as_pdf_rounded,
+                    variant: MetallicVariant.crimsonRed,
+                    height: 42,
+                    fontSize: 11.5,
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _exportPdfFile();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<pw.Font> _resolvePdfFont() async {
+    try {
+      final lowerLang = _activeLanguage.toLowerCase();
+      if (lowerLang.contains("marathi") || lowerLang.contains("मराठी")) {
+        return await PdfGoogleFonts.tiroDevanagariMarathiRegular();
+      } else if (lowerLang.contains("hindi") || lowerLang.contains("हिंदी")) {
+        return await PdfGoogleFonts.notoSansDevanagariRegular();
+      } else if (lowerLang.contains("arabic") || lowerLang.contains("urdu")) {
+        return await PdfGoogleFonts.notoSansArabicRegular();
+      }
+      return await PdfGoogleFonts.robotoRegular();
+    } catch (_) {
+      return pw.Font.helvetica();
+    }
+  }
+
+  Future<Uint8List> _generateCompletePdf() async {
+    final pdf = pw.Document();
+    final cleanReport = _analysisReport ?? "No active summary.";
+    final pw.Font unicodeFont = await _resolvePdfFont();
+    final pw.ThemeData theme = pw.ThemeData.withFont(base: unicodeFont, fontFallback: [unicodeFont]);
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        theme: theme,
+        build: (pw.Context ctx) => [
+          pw.Header(
+            level: 0,
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text("Paper Pilot • Grok-Style Summary",
+                    style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+                pw.Text(DateTime.now().toString().split(" ")[0], style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
               ],
             ),
           ),
-        );
-        continue;
-      }
-
-      widgets.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _renderInlineBold(trimmed),
-        ),
-      );
-    }
-
-    flushTable();
-    return widgets;
-  }
-
-  Widget _renderInlineBold(String text) {
-    final List<TextSpan> spans = [];
-    final parts = text.split("**");
-
-    for (int i = 0; i < parts.length; i++) {
-      if (parts[i].isEmpty) continue;
-      final isBold = i % 2 == 1;
-      spans.add(
-        TextSpan(
-          text: parts[i],
-          style: TextStyle(
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            color: isBold ? const Color(0xFF0F172A) : const Color(0xFF334155),
-            fontSize: 16,
-            height: 1.55,
+          pw.SizedBox(height: 8),
+          pw.Text("File: ${_selectedFileName ?? 'Document'}", style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+          pw.Text("Language: $_activeLanguage", style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+          pw.Divider(thickness: 1.2, color: PdfColors.blueGrey200),
+          pw.SizedBox(height: 10),
+          pw.Paragraph(
+            text: cleanReport.replaceAll(RegExp(r'[*#_`|]'), ''),
+            style: const pw.TextStyle(fontSize: 10, lineSpacing: 1.8),
           ),
-        ),
-      );
-    }
-    return SelectableText.rich(TextSpan(children: spans));
-  }
-
-  Widget _buildTopPreviewCard() {
-    if (_selectedFileName == null) return const SizedBox.shrink();
-
-    final sizeKb = (_selectedFileSize / 1024).toStringAsFixed(1);
-    final isPdf = _selectedFileName!.toLowerCase().endsWith(".pdf");
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2)),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: _isImageFile && _fileBytes != null
-                ? Image.memory(
-                    _fileBytes!,
-                    width: 64,
-                    height: 64,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    width: 64,
-                    height: 64,
-                    color: isPdf
-                        ? const Color(0xFFFEF2F2)
-                        : const Color(0xFFEFF6FF),
-                    child: Icon(
-                      isPdf
-                          ? Icons.picture_as_pdf_rounded
-                          : Icons.description_rounded,
-                      color: isPdf
-                          ? const Color(0xFFDC2626)
-                          : const Color(0xFF2563EB),
-                      size: 34,
+    );
+
+    return pdf.save();
+  }
+
+  Future<void> _printDirectly() async {
+    try {
+      final bytes = await _generateCompletePdf();
+      await Printing.layoutPdf(onLayout: (_) => bytes, name: 'PaperPilot_Summary.pdf');
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Print error: $e")));
+    }
+  }
+
+  Future<void> _exportPdfFile() async {
+    try {
+      final bytes = await _generateCompletePdf();
+      final dir = await getTemporaryDirectory();
+      final file = File("${dir.path}/PaperPilot_Summary_${DateTime.now().millisecondsSinceEpoch}.pdf");
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(file.path)], text: "Document Summary: ${_selectedFileName ?? 'Doc'}");
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("PDF Share Error: $e")));
+    }
+  }
+
+  Widget _buildRecentScansTray() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.history_rounded, size: 16, color: Color(0xFF2563EB)),
+                SizedBox(width: 6),
+                Text("Recent Audited Files", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5, color: Color(0xFF0F172A))),
+              ],
+            ),
+            if (_recentScans.isNotEmpty)
+              TextButton(
+                onPressed: _clearAllRecentScans,
+                style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                child: const Text("Clear History", style: TextStyle(color: Color(0xFFDC2626), fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_recentScans.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+            child: const Text("No recent audited documents. Scanned files will be preserved here.", style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+          )
+        else
+          SizedBox(
+            height: 84,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _recentScans.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final item = _recentScans[i];
+                return InkWell(
+                  onTap: () => _restoreHistoricalScan(item),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 220,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(6)),
+                              child: const Icon(Icons.description_rounded, size: 14, color: Color(0xFF2563EB)),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                item["name"] ?? "Document",
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF0F172A)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("${item["type"]} • ${item["date"]}", style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B))),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(4)),
+                              child: const Text("Audited", style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
+                );
+              },
+            ),
           ),
-          const SizedBox(width: 14),
+      ],
+    );
+  }
+
+  Widget _buildTopAttachmentBanner() {
+    if (_selectedFileName == null) return const SizedBox.shrink();
+    final sizeKb = (_selectedFileSize / 1024).toStringAsFixed(1);
+    final ext = _selectedFileName!.split('.').last.toUpperCase();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: const Color(0xFFDBEAFE), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.insert_drive_file_rounded, color: Color(0xFF2563EB), size: 24),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   _selectedFileName!,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: Color(0xFF0F172A)),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _t("ready_size").replaceAll("{size}", sizeKb),
-                  style:
-                      const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
-                ),
+                const SizedBox(height: 2),
+                Text("$ext • $sizeKb KB • Ready for Grok Audit", style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close_rounded, size: 22, color: Colors.grey),
+            icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF64748B)),
             onPressed: () {
               _stopSpeech();
               setState(() {
@@ -927,690 +869,354 @@ class _PaperPilotScreenState extends State<PaperPilotScreen>
     );
   }
 
-  Widget _buildQuickTipBanner() {
-    if (!_showQuickTip || _analysisReport != null) return const SizedBox.shrink();
+  List<Widget> _renderGrokStyleSummary(String rawText) {
+    final List<Widget> widgets = [];
+    final lines = rawText.split("\n");
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFBBF7D0)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: const BoxDecoration(
-              color: Color(0xFFDCFCE7),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.lightbulb_rounded, color: Color(0xFF16A34A), size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _t("quick_tip_title"),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF166534),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _t("quick_tip_body"),
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Color(0xFF14532D),
-                    height: 1.3,
-                  ),
-                ),
-              ],
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty) continue;
+
+      if (line.startsWith("#")) {
+        final title = line.replaceAll(RegExp(r'^#+\s*'), '').replaceAll("**", "");
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 14, bottom: 6),
+            child: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5, color: Color(0xFF1E3A8A)),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF15803D)),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: () {
-              setState(() => _showQuickTip = false);
-            },
+        );
+        continue;
+      }
+
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            line.replaceAll("**", ""),
+            style: const TextStyle(fontSize: 13.5, color: Color(0xFF334155), height: 1.45),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecentScansTray() {
-    if (_analysisReport != null) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _t("recent_scans"),
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            if (_recentScans.isNotEmpty)
-              InkWell(
-                onTap: _clearAllRecentScans,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Text(
-                    _t("clear_all"),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFDC2626),
-                    ),
-                  ),
-                ),
-              ),
-          ],
         ),
-        const SizedBox(height: 10),
-        if (_recentScans.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.history_rounded, size: 18, color: Color(0xFF94A3B8)),
-                SizedBox(width: 8),
-                Text(
-                  "No audited records yet. Scanned docs will appear here.",
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                ),
-              ],
-            ),
-          )
-        else
-          SizedBox(
-            height: 96,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _recentScans.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final item = _recentScans[index];
-                final isPdf = (item["name"] ?? "").toString().toLowerCase().endsWith(".pdf");
+      );
+    }
 
-                return InkWell(
-                  onTap: () => _restoreHistoricalScan(item),
-                  borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    width: 230,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: isPdf ? const Color(0xFFFEF2F2) : const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                isPdf ? Icons.picture_as_pdf_rounded : Icons.description_rounded,
-                                size: 16,
-                                color: isPdf ? const Color(0xFFDC2626) : const Color(0xFF2563EB),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                item["name"] ?? "Document",
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E293B),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "${item["type"]} • ${item["date"]}",
-                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF16A34A).withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                item["status"] ?? "Audited",
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF16A34A),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-      ],
-    );
+    return widgets;
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final systemNavInset = MediaQuery.of(context).padding.bottom;
+    final topPadding = MediaQuery.of(context).padding.top;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A), size: 24),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          _t("title"),
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: Color(0xFF0F172A)),
-        ),
-      ),
-      body: SingleChildScrollView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: EdgeInsets.fromLTRB(16, 14, 16, bottomInset + 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildQuickTipBanner(),
-
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              color: Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB).withOpacity(0.08),
-                          shape: BoxShape.circle),
-                      child: const Icon(Icons.document_scanner_rounded,
-                          color: Color(0xFF2563EB), size: 30),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _t("title"),
-                      style: const TextStyle(
-                          fontSize: 18.5, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _t("subtitle"),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          fontSize: 13.5, color: Colors.black54, height: 1.4),
-                    ),
-                    const SizedBox(height: 16),
-
-                    _buildTopPreviewCard(),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                              side: const BorderSide(color: Color(0xFF2563EB)),
-                            ),
-                            onPressed: _isAnalyzing ? null : _captureFromCamera,
-                            icon: const Icon(Icons.camera_alt_rounded,
-                                size: 20, color: Color(0xFF2563EB)),
-                            label: Text(
-                              _t("camera"),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: Color(0xFF2563EB)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                              side: BorderSide(color: Colors.grey.shade400),
-                            ),
-                            onPressed: _isAnalyzing ? null : _pickDocumentFile,
-                            icon: const Icon(Icons.upload_file_rounded,
-                                size: 20, color: Color(0xFF334155)),
-                            label: Text(
-                              _t("pick_file"),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: Color(0xFF334155)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: _isAnalyzing ? null : _analyzeDocument,
-                        icon: _isAnalyzing
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.search_rounded, size: 20),
-                        label: Text(
-                          _isAnalyzing ? _t("auditing_btn") : _t("scan_btn"),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14.5),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Container(
+          color: Colors.white,
+          padding: EdgeInsets.only(top: topPadding),
+          child: AppBar(
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            backgroundColor: Colors.white,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A), size: 24),
+              onPressed: () => Navigator.of(context).pop(),
             ),
-
-            _buildRecentScansTray(),
-
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.shade200),
+            titleSpacing: 0,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Paper Pilot",
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5, color: Color(0xFF0F172A)),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber_rounded,
-                        color: Colors.red, size: 22),
-                    const SizedBox(width: 10),
-                    Expanded(
-                        child: Text(_errorMessage!,
-                            style: const TextStyle(
-                                color: Colors.red, fontSize: 14))),
-                  ],
-                ),
-              ),
-            ],
-
-            if (_detectedDestination != null) ...[
-              const SizedBox(height: 14),
-              InkWell(
-                onTap: () {
-                  _stopSpeech();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => TouristOSExplorerScreen(
-                        language: widget.language,
-                        initialCity: _detectedDestination!.split(",")[0].trim(),
-                        backendUrl: widget.backendUrl,
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFBFDBFE)),
-                  ),
+                InkWell(
+                  onTap: _showLanguageSelectionDialog,
                   child: Row(
                     children: [
-                      const Icon(Icons.explore_rounded,
-                          color: Color(0xFF2563EB), size: 22),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          "Location mapped to $_detectedDestination in TouristOS Explorer.",
-                          style: const TextStyle(
-                              color: Color(0xFF1E40AF),
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward_ios_rounded,
-                          size: 16, color: Color(0xFF2563EB)),
+                      Text(_activeLanguage, style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
+                      const Icon(Icons.arrow_drop_down_rounded, size: 16, color: Color(0xFF2563EB)),
                     ],
                   ),
                 ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                tooltip: _isMuted ? "Unmute Audio" : "Mute Audio",
+                icon: Icon(
+                  _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                  color: _isMuted ? const Color(0xFF94A3B8) : const Color(0xFF16A34A),
+                  size: 22,
+                ),
+                onPressed: () {
+                  setState(() => _isMuted = !_isMuted);
+                  if (_isMuted) _stopSpeech();
+                },
+              ),
+              IconButton(
+                tooltip: "Export & Share Summary",
+                icon: const Icon(Icons.share_rounded, color: Color(0xFF2563EB), size: 20),
+                onPressed: _openExportSheet,
+              ),
+            ],
+          ),
+        ),
+      ),
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: Column(
+          children: [
+            if (_isSpeaking) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: const Color(0xFFEFF6FF),
+                child: Row(
+                  children: [
+                    const Icon(Icons.graphic_eq_rounded, color: Color(0xFF2563EB), size: 18),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text("Audio reader active...", style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8))),
+                    ),
+                    ElevatedButton.icon(
+                      style: EdgeButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(Icons.stop_rounded, size: 14),
+                      label: const Text("STOP", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      onPressed: _stopSpeech,
+                    ),
+                  ],
+                ),
               ),
             ],
 
-            if (_analysisReport != null) ...[
-              const SizedBox(height: 18),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4)),
-                  ],
-                ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Row(
+                    _buildTopAttachmentBanner(),
+
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 3)),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
                             children: [
-                              const Icon(Icons.verified_rounded,
-                                  color: Color(0xFF16A34A), size: 24),
-                              const SizedBox(width: 10),
                               Expanded(
-                                child: Text(
-                                  _t("forensic_report"),
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 16.5,
-                                      color: Color(0xFF0F172A)),
+                                child: MetallicEmbossedButton(
+                                  label: "Camera",
+                                  icon: Icons.camera_alt_rounded,
+                                  variant: MetallicVariant.cobaltBlue,
+                                  height: 42,
+                                  fontSize: 12.5,
+                                  onPressed: _isAnalyzing ? null : _captureFromCamera,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: MetallicEmbossedButton(
+                                  label: "Pick Any File",
+                                  icon: Icons.upload_file_rounded,
+                                  variant: MetallicVariant.titaniumSilver,
+                                  height: 42,
+                                  fontSize: 12,
+                                  onPressed: _isAnalyzing ? null : _pickDocumentFile,
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy_rounded,
-                              size: 20, color: Colors.grey),
-                          onPressed: () {
-                            Clipboard.setData(
-                                ClipboardData(text: _analysisReport!));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(_t("report_copied"))),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _isSpeaking
-                            ? const Color(0xFFFEF2F2)
-                            : const Color(0xFFF0FDF4),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _isSpeaking
-                              ? const Color(0xFFFCA5A5)
-                              : const Color(0xFFBBF7D0),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _isSpeaking
-                                ? Icons.graphic_eq_rounded
-                                : Icons.volume_up_rounded,
-                            color: _isSpeaking
-                                ? const Color(0xFFDC2626)
-                                : const Color(0xFF16A34A),
-                            size: 22,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _isSpeaking ? _t("audio_active") : _t("audio_ready"),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: _isSpeaking
-                                    ? const Color(0xFFB91C1C)
-                                    : const Color(0xFF15803D),
-                              ),
-                            ),
-                          ),
-                          if (_isSpeaking) ...[
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFDC2626),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 8),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8)),
-                              ),
-                              onPressed: _stopSpeech,
-                              icon: const Icon(Icons.stop_rounded, size: 18),
-                              label: Text(
-                                _t("stop"),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12.5),
-                              ),
-                            ),
-                          ] else ...[
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF16A34A),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 8),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8)),
-                              ),
-                              onPressed: _startSpeech,
-                              icon: const Icon(Icons.play_arrow_rounded,
-                                  size: 18),
-                              label: Text(
-                                _t("listen"),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12.5),
-                              ),
+                          if (_selectedFileName != null) ...[
+                            const SizedBox(height: 10),
+                            MetallicEmbossedButton(
+                              label: _isAnalyzing ? "AUDITING..." : "AUDIT FILE (GROK STYLE)",
+                              icon: Icons.bolt_rounded,
+                              variant: MetallicVariant.emeraldGreen,
+                              isFullWidth: true,
+                              height: 44,
+                              fontSize: 13,
+                              onPressed: _isAnalyzing ? null : _analyzeDocument,
                             ),
                           ],
                         ],
                       ),
                     ),
 
-                    const Divider(height: 24),
-                    ..._renderGrokContent(_analysisReport!),
+                    const SizedBox(height: 14),
+                    _buildRecentScansTray(),
+
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFCA5A5))),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(_errorMessage!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12.5))),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    if (_analysisReport != null) ...[
+                      const SizedBox(height: 16),
+                      RepaintBoundary(
+                        key: _reportRepaintKey,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: const [
+                                      Icon(Icons.auto_awesome_rounded, color: Color(0xFF2563EB), size: 20),
+                                      SizedBox(width: 8),
+                                      Text("Grok-Style Document Audit", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F172A))),
+                                    ],
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.share_rounded, size: 18, color: Color(0xFF2563EB)),
+                                    onPressed: _openExportSheet,
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 20),
+                              ..._renderGrokStyleSummary(_analysisReport!),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 18),
+                    const Text("Dialogue & Persistent Companion", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: Color(0xFF0F172A))),
+                    const SizedBox(height: 8),
+
+                    ..._chatMessages.map((msg) {
+                      final isUser = msg["sender"] == "user";
+                      final text = msg["text"] ?? "";
+
+                      return Align(
+                        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.90),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isUser ? const Color(0xFF2563EB) : Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: isUser ? const Color(0xFF1D4ED8) : const Color(0xFFE2E8F0)),
+                          ),
+                          child: Text(
+                            text,
+                            style: TextStyle(color: isUser ? Colors.white : const Color(0xFF0F172A), fontSize: 13.5, height:.4),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+
+                    if (_isChatLoading) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: const [
+                            SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2563EB))),
+                            SizedBox(width: 8),
+                            Text("Thinking...", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
+            ),
 
-              if (_suggestions.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Text(
-                  _t("directives"),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                      color: Color(0xFF0F172A)),
-                ),
-                const SizedBox(height: 10),
-                ..._suggestions.map(
-                  (s) => InkWell(
-                    onTap: () => _sendQuestion(s),
-                    child: Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.subdirectory_arrow_right_rounded,
-                              size: 18, color: Color(0xFF2563EB)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(s,
-                                style: const TextStyle(
-                                    fontSize: 14.5, color: Color(0xFF1E293B))),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-
-              if (_chatMessages.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Text(
-                  _t("chat_header"),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                      color: Color(0xFF0F172A)),
-                ),
-                const SizedBox(height: 10),
-                ..._chatMessages.map((msg) {
-                  final isUser = msg["sender"] == "user";
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isUser ? const Color(0xFF2563EB) : Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: isUser
-                          ? null
-                          : Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Text(
-                      msg["text"] ?? "",
-                      style: TextStyle(
-                        color: isUser ? Colors.white : const Color(0xFF0F172A),
-                        fontSize: 15.5,
-                        height: 1.5,
-                      ),
-                    ),
-                  );
-                }),
-              ],
-
-              const SizedBox(height: 12),
-              Row(
+            Container(
+              padding: EdgeInsets.fromLTRB(
+                14,
+                10,
+                14,
+                bottomInset > 0 ? bottomInset + 10 : (systemNavInset > 0 ? systemNavInset + 12 : 16),
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+              ),
+              child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _chatController,
-                      style: const TextStyle(fontSize: 15),
+                      style: const TextStyle(fontSize: 14.5),
                       decoration: InputDecoration(
-                        hintText: _t("chat_hint"),
-                        hintStyle: const TextStyle(fontSize: 14),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24)),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 18, vertical: 12),
+                        hintText: _isListening ? "Listening in $_activeLanguage..." : "Ask anything about file or yourself...",
+                        hintStyle: TextStyle(
+                          fontSize: 12.5,
+                          color: _isListening ? const Color(0xFFDC2626) : const Color(0xFF94A3B8),
+                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        isDense: const isDense = true,
                       ),
                       onSubmitted: _sendQuestion,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 6),
+                  CircleAvatar(
+                    backgroundColor: _isListening ? const Color(0xFFDC2626) : const Color(0xFFEFF6FF),
+                    radius: 20,
+                    child: IconButton(
+                      icon: Icon(_isListening ? Icons.mic_rounded : Icons.mic_none_rounded, color: _isListening ? Colors.white : const Color(0xFF2563EB), size: 20),
+                      onPressed: _toggleVoiceInput,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   CircleAvatar(
                     backgroundColor: const Color(0xFF2563EB),
-                    radius: 24,
+                    radius: 20,
                     child: IconButton(
-                      icon: _isChatLoading
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.send_rounded,
-                              size: 20, color: Colors.white),
-                      onPressed: _isChatLoading
-                          ? null
-                          : () => _sendQuestion(_chatController.text),
+                      icon: const Icon(Icons.arrow_upward_rounded, size: 20, color: Colors.white),
+                      onPressed: () => _sendQuestion(_chatController.text),
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
           ],
         ),
       ),

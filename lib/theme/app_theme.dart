@@ -15,15 +15,15 @@ class AppTheme {
       surface: Colors.white,
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.white,
+      backgroundColor: surfaceBg, // Seamless transition into scaffold body
       foregroundColor: textDark,
       elevation: 0,
-      scrolledUnderElevation: 0,
+      scrolledUnderElevation: 0, // Prevents gray tinting on scroll
       centerTitle: false,
       iconTheme: IconThemeData(color: textDark, size: 22),
       titleTextStyle: TextStyle(
         color: textDark,
-        fontSize: 16.5,
+        fontSize: 17,
         fontWeight: FontWeight.w900,
         letterSpacing: -0.2,
       ),
