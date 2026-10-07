@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,6 +11,7 @@ import '../services/supabase_service.dart';
 import '../services/trip_state_service.dart';
 import '../widgets/metallic_embossed_button.dart';
 import 'contribute_place_screen.dart';
+import 'community_pulse_chat_screen.dart';
 
 class CommunityGemsScreen extends StatefulWidget {
   final String activeCity;
@@ -17,11 +19,11 @@ class CommunityGemsScreen extends StatefulWidget {
   final String backendUrl;
 
   const CommunityGemsScreen({
-    Key? key,
+    super.key,
     required this.activeCity,
     this.language = "English",
     this.backendUrl = "https://omni-backend-pk28.onrender.com",
-  }) : super(key: key);
+  });
 
   @override
   State<CommunityGemsScreen> createState() => _CommunityGemsScreenState();
@@ -49,8 +51,6 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
 
   RealtimeChannel? _presenceChannel;
   List<Map<String, dynamic>> _activeScouts = [];
-  String? _remoteTypingUser;
-  DateTime? _lastTypingTime;
 
   static const String _upvoteStorageKey = "omni_community_upvoted_ids";
   static const String _languagePrefKey = "omni_selected_ui_language";
@@ -79,7 +79,7 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
     {"code": "ru", "name": "Russian", "native": "Русский"},
     {"code": "ar", "name": "Arabic", "native": "العربية"},
     {"code": "ur", "name": "Urdu", "native": "اردو"},
-    {"code": "fa", "name": "Persian", "native": "فारसी"},
+    {"code": "fa", "name": "Persian", "native": "فارسی"},
     {"code": "ja", "name": "Japanese", "native": "日本語"},
     {"code": "zh", "name": "Chinese", "native": "中文"},
     {"code": "th", "name": "Thai", "native": "ไทย"},
@@ -124,7 +124,7 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
       "Heritage & Sight": "Heritage & Sight",
       "navigate_btn": "Navigate",
       "endorse_btn": "Endorse",
-      "add_gem_btn": "+ Add Local Shop / Gem",
+      "add_gem_btn": "+ Add Local Gem",
       "search_hint": "Search pharmacy, barber, chai, food spot...",
       "recommended_by": "Recommended by",
       "translate": "Translate",
@@ -151,7 +151,7 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
       "Heritage & Sight": "ऐतिहासिक व पर्यटन स्थळे",
       "navigate_btn": "दिशा दाखवा",
       "endorse_btn": "शिफारस करा",
-      "add_gem_btn": "+ नवीन दुकान / जागा जोडा",
+      "add_gem_btn": "+ नवीन रत्न / जागा जोडा",
       "search_hint": "केमिस्ट, सलून, चहा, खाऊ गल्ली शोधा...",
       "recommended_by": "द्वारे शिफारस",
       "translate": "भाषांतर करा",
@@ -178,7 +178,7 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
       "Heritage & Sight": "ऐतिहासिक व पर्यटन स्थल",
       "navigate_btn": "नेविगेट करें",
       "endorse_btn": "सिफारिश करें",
-      "add_gem_btn": "+ नई दुकान / स्थान जोड़ें",
+      "add_gem_btn": "+ नया रत्न / स्थान जोड़ें",
       "search_hint": "दवा दुकान, सैलून, चाय, भोजनालय खोजें...",
       "recommended_by": "द्वारा अनुशंसित",
       "translate": "अनुवाद करें",
@@ -240,28 +240,6 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
     try {
       final cleanCity = _currentHubCity.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
       _presenceChannel = Supabase.instance.client.channel('presence_$cleanCity');
-
-      _presenceChannel!.onBroadcast(
-        event: 'typing',
-        callback: (payload) {
-          final typer = payload['user_name']?.toString() ?? '';
-          final typerId = payload['user_id']?.toString() ?? '';
-          if (typerId != _currentUserId && typer.isNotEmpty) {
-            if (mounted) {
-              setState(() {
-                _remoteTypingUser = typer;
-                _lastTypingTime = DateTime.now();
-              });
-              Future.delayed(const Duration(seconds: 3), () {
-                if (mounted && _lastTypingTime != null &&
-                    DateTime.now().difference(_lastTypingTime!).inSeconds >= 3) {
-                  setState(() => _remoteTypingUser = null);
-                }
-              });
-            }
-          }
-        },
-      );
 
       _presenceChannel!
           .onPresenceSync((_) {
@@ -329,9 +307,9 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
         ),
         content: const Text(
           "To keep Omni TouristOS safe for travelers and locals:\n\n"
-          "• No illicit goods, contraband, or unauthorized deals.\n"
+          "• No illicit goods, contraband, or unauthorized promotions.\n"
           "• Zero tolerance for harassment, scams, or abuse.\n"
-          "• Messages are supervised by OmniGuard AI and admins.\n\n"
+          "• Messages & notices are supervised by OmniGuard AI.\n\n"
           "Violators face immediate permanent account suspension.",
           style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
         ),
@@ -380,6 +358,249 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
     } catch (_) {
       return "Recently";
     }
+  }
+
+  void _shareAppInvite() {
+    HapticFeedback.selectionClick();
+    final inviteMessage = "Join me on Omni TouristOS! We're discovering verified neighborhood gems 💎, live transit cockpits, and sharing real-time tips in $_currentHubCity Gem Chat:\nhttps://touristos.app/invite/${_currentUserId ?? 'scout'}";
+    Share.share(inviteMessage, subject: "Invite to Omni TouristOS Gem Chat");
+  }
+
+  void _shareNoticeFlyer(Map<String, dynamic> gem) {
+    HapticFeedback.selectionClick();
+    final name = gem['name'] ?? 'Local Spot';
+    final title = gem['daily_notice_title'] ?? "Today's Special";
+    final content = gem['daily_notice_content'] ?? "";
+    final tag = gem['daily_notice_tag'] ?? "Special";
+    final address = gem['address'] ?? _currentHubCity;
+
+    final flyerText = "📢 [$tag] TODAY AT $name ($address):\n\n"
+        "✨ $title\n"
+        "${content.isNotEmpty ? "$content\n\n" : "\n"}"
+        "Shared via Omni TouristOS Community Gems 💎\n"
+        "https://touristos.app/gem/${gem['id'] ?? ''}";
+
+    Share.share(flyerText, subject: "Today's Special at $name");
+  }
+
+  void _showNoticeFlyerModal(Map<String, dynamic> gem, bool canManage) {
+    HapticFeedback.mediumImpact();
+    final name = gem['name'] ?? "Local Spot";
+    final category = gem['category'] ?? "Spot";
+    final title = gem['daily_notice_title'] ?? "Notice";
+    final content = gem['daily_notice_content'] ?? "";
+    final tag = gem['daily_notice_tag'] ?? "Special";
+    final address = gem['address'] ?? _currentHubCity;
+    final expiresIso = gem['daily_notice_expires_at']?.toString();
+
+    String expiresText = "Active Today";
+    if (expiresIso != null && expiresIso.isNotEmpty) {
+      try {
+        final exp = DateTime.parse(expiresIso).toLocal();
+        final diff = exp.difference(DateTime.now());
+        if (diff.inHours > 0) {
+          expiresText = "Valid for next ${diff.inHours} hours";
+        } else if (diff.inMinutes > 0) {
+          expiresText = "Valid for next ${diff.inMinutes} mins";
+        }
+      } catch (_) {}
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.78,
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F172A),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(10)),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFF334155)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.schedule_rounded, color: Color(0xFFFCD34D), size: 14),
+                          const SizedBox(width: 5),
+                          Text(expiresText, style: const TextStyle(fontSize: 11, color: Color(0xFFFCD34D), fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          tag.toUpperCase(),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.black87),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFF334155)),
+                        ),
+                        child: Text(
+                          content.isNotEmpty ? content : "Notice published by the spot team.",
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Color(0xFFE2E8F0),
+                            height: 1.45,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          const Icon(Icons.storefront_rounded, color: Color(0xFF38BDF8), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 26),
+                        child: Text(
+                          "$category • $address",
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0F172A),
+                  border: Border(top: BorderSide(color: Color(0xFF1E293B))),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    MetallicEmbossedButton(
+                      label: "SHARE FLYER (WHATSAPP / MESSENGER) 📤",
+                      icon: Icons.share_rounded,
+                      variant: MetallicVariant.cobaltBlue,
+                      height: 46,
+                      fontSize: 12.5,
+                      isFullWidth: true,
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _shareNoticeFlyer(gem);
+                      },
+                    ),
+                    if (canManage) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFDC2626),
+                                side: const BorderSide(color: Color(0xFFEF4444)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                              label: const Text("Delete Notice", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              onPressed: () async {
+                                final placeId = gem['id']?.toString() ?? "";
+                                setState(() {
+                                  gem['daily_notice_title'] = null;
+                                  gem['daily_notice_content'] = null;
+                                  gem['daily_notice_tag'] = null;
+                                });
+                                Navigator.pop(ctx);
+                                await SupabaseService.clearDailyNotice(placeId);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("✓ Notice removed from spot.")),
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2563EB),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: const Icon(Icons.edit_rounded, size: 18, color: Colors.white),
+                              label: const Text("Edit Notice", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _showDailyNoticeModal(gem);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showLanguageSelectorModal() {
@@ -456,7 +677,12 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
       final lastPos = await Geolocator.getLastKnownPosition();
       if (lastPos != null && mounted) setState(() => _userPosition = lastPos);
 
-      final livePos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high, timeLimit: const Duration(seconds: 8));
+      final livePos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
       if (mounted) setState(() => _userPosition = livePos);
     } catch (_) {}
   }
@@ -486,223 +712,98 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
   }
 
   Future<void> _loadPlacesForCity(String city) async {
-    setState(() => _isLoading = true);
-    final data = await SupabaseService.getPlacesForCity(city);
-    if (!mounted) return;
-
-    if (data.isNotEmpty) {
-      final clean = _deduplicatePlaces(data);
-      setState(() {
-        _places = clean;
-        _isLoading = false;
-      });
-    } else {
-      final generated = _generateGemsForCity(city);
-      setState(() {
-        _places = generated;
-        _isLoading = false;
-      });
+    if (mounted) setState(() { _isLoading = true; });
+    try {
+      final cleanUrl = widget.backendUrl.replaceAll(RegExp(r'/+$'), '');
+      final hasSearch = _searchQuery.trim().isNotEmpty;
+      final endpoint = hasSearch
+          ? '/api/v1/community/place-discovery/search'
+          : '/api/v1/community/places/search';
+      final searchParams = <String, String>{
+        'city': city,
+        'category': _selectedCategory == 'All' ? 'All' : _selectedCategory,
+        'limit': hasSearch ? '20' : '50',
+      };
+      if (hasSearch) {
+        searchParams['q'] = _searchQuery.trim();
+      }
+      if (_userPosition != null) {
+        searchParams['lat'] = _userPosition!.latitude.toString();
+        searchParams['lng'] = _userPosition!.longitude.toString();
+      }
+      final uri = Uri.parse('$cleanUrl$endpoint').replace(queryParameters: searchParams);
+      final response = await http.get(uri).timeout(const Duration(seconds: 30));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('Community search returned ${response.statusCode}');
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map && decoded['provider'] != null) {
+        debugPrint('Community Gems provider: ${decoded['provider']}');
+      }
+      final rows = decoded is Map ? decoded['places'] : null;
+      if (rows is! List) throw Exception('Invalid Community Gems response');
+      final data = rows.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      if (!mounted) return;
+      setState(() { _places = _deduplicatePlaces(data); _isLoading = false; });
+    } catch (e) {
+      // Keep the community database useful if the unified backend is temporarily unavailable.
+      try {
+        final data = await SupabaseService.getPlacesForCity(city);
+        if (!mounted) return;
+        setState(() { _places = _deduplicatePlaces(data); _isLoading = false; });
+      } catch (_) {
+        if (mounted) setState(() { _places = []; _isLoading = false; });
+      }
+      debugPrint('Community Gems live search: $e');
     }
   }
 
   Future<void> _executeActiveSearch(String query) async {
     final q = query.trim();
-    if (q.isEmpty) {
-      _loadPlacesForCity(_currentHubCity);
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _searchQuery = q;
-    });
-
-    List<Map<String, dynamic>> results = [];
-
-    try {
-      await SupabaseService.ensureInitialized();
-      final response = await SupabaseService.client
-          .from('community_places')
-          .select()
-          .or('city.ilike.%$q%,name.ilike.%$q%,address.ilike.%$q%,category.ilike.%$q%')
-          .order('upvotes', ascending: false);
-
-      results = _deduplicatePlaces(List<Map<String, dynamic>>.from(response));
-    } catch (e) {
-      debugPrint("Supabase query notice: $e");
-    }
-
-    if (results.isEmpty) {
-      results = _generateGemsForCity(q);
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _places = results;
-      _isLoading = false;
-      if (results.isNotEmpty) {
-        _currentHubCity = q[0].toUpperCase() + q.substring(1);
-      }
-    });
-  }
-
-  List<Map<String, dynamic>> _generateGemsForCity(String queryCity) {
-    final cityName = queryCity.trim().isEmpty ? "Local Area" : (queryCity[0].toUpperCase() + queryCity.substring(1));
-    final cleanCity = cityName.toLowerCase();
-
-    double centerLat = 19.3556;
-    double centerLon = 72.8256;
-
-    if (cleanCity.contains("mumbai")) {
-      centerLat = 18.9220;
-      centerLon = 72.8347;
-    } else if (cleanCity.contains("dubai")) {
-      centerLat = 25.2048;
-      centerLon = 55.2708;
-    } else if (cleanCity.contains("delhi")) {
-      centerLat = 28.6139;
-      centerLon = 77.2090;
-    } else if (_userPosition != null) {
-      centerLat = _userPosition!.latitude;
-      centerLon = _userPosition!.longitude;
-    }
-
-    final templates = [
-      {
-        "name": "$cityName 24x7 Apollo & Sanjivani Chemist",
-        "category": "Pharmacy / Chemist",
-        "address": "Opposite Central Transit Junction, Station Road, $cityName",
-        "description": "24/7 all-night pharmacy stocking critical emergency medicines, surgical supplies, and instant delivery.",
-        "contact_phone": "+91 98200 12345",
-        "must_try_tip": "Open 24 hours including national holidays.",
-        "tags": ["🕒 24 Hours", "💳 UPI Accepted", "🛵 Home Delivery"],
-        "upvotes": 12,
-      },
-      {
-        "name": "Classic Royal Mens Grooming & Hair Salon",
-        "category": "Barber & Salon",
-        "address": "Shop 4, Market Promenade, Near City Post, $cityName",
-        "description": "Hygienic local salon offering precision fades, beard styling, facial massages, and quick walk-in service.",
-        "contact_phone": "+91 98200 23456",
-        "must_try_tip": "Try their herbal head massage with menthol cooling.",
-        "tags": ["❄️ AC Seating", "💳 UPI Accepted", "💰 Budget Friendly"],
-        "upvotes": 9,
-      },
-      {
-        "name": "Shree Ganesh Kirana & Daily Provisions",
-        "category": "Kirana & Essentials",
-        "address": "Bazaar Main Gali, Near Old Clock Tower, $cityName",
-        "description": "Trusted neighborhood store for fresh grains, cold-pressed oils, dairy essentials, and spices.",
-        "contact_phone": "+91 98200 34567",
-        "must_try_tip": "Home delivery within 30 minutes on phone order.",
-        "tags": ["🛵 Home Delivery", "💳 UPI Accepted", "💰 Budget Friendly"],
-        "upvotes": 14,
-      },
-      {
-        "name": "Tapri Corner Masala Chai & Bun Maska",
-        "category": "Chai & Quick Bites",
-        "address": "Station Gate 2 Exit, Beside Auto Stand, $cityName",
-        "description": "Piping hot ginger-cardamom cutting chai, crispy bun maska, samosas, and piping vada pavs.",
-        "contact_phone": "",
-        "must_try_tip": "Best cutting chai in the area, paired with hot onion bhajiyas.",
-        "tags": ["🌿 Pure Veg", "💰 Budget Friendly", "💳 UPI Accepted"],
-        "upvotes": 31,
-      },
-      {
-        "name": "Coastal Spice Seafood Diner & Thali House",
-        "category": "Diner & Seafood",
-        "address": "Near Old Fishermen Wharf, Coastal Lane, $cityName",
-        "description": "Authentic regional thalis, surmai fry, crab masala, and homestyle coconut curry.",
-        "contact_phone": "+91 98200 89012",
-        "must_try_tip": "Order the special executive fish thali with solkadhi.",
-        "tags": ["❄️ AC Seating", "💳 UPI Accepted"],
-        "upvotes": 28,
-      },
-    ];
-
-    return templates.asMap().entries.map((entry) {
-      final idx = entry.key;
-      final t = entry.value;
-      final offsetLat = ((idx * 7) % 15 - 7) * 0.0035;
-      final offsetLon = ((idx * 11) % 15 - 7) * 0.0035;
-
-      return {
-        "id": "DYNAMIC-$idx-${t['name'].hashCode}",
-        "name": t['name'],
-        "category": t['category'],
-        "address": t['address'],
-        "city": cityName,
-        "description": t['description'],
-        "contact_phone": t['contact_phone'],
-        "maps_url": "https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent("${t['name']}, $cityName")}",
-        "contributor_name": "Verified Local Scout",
-        "upvotes": t['upvotes'],
-        "must_try_tip": t['must_try_tip'],
-        "endorsement_tags": t['tags'],
-        "latitude": centerLat + offsetLat,
-        "longitude": centerLon + offsetLon,
-      };
-    }).toList();
+    setState(() { _searchQuery = q; });
+    await _loadPlacesForCity(_currentHubCity);
   }
 
   String _calculateDistance(Map<String, dynamic> gem) {
-    double uLat = _userPosition?.latitude ?? 19.3900;
-    double uLon = _userPosition?.longitude ?? 72.8300;
+    if (_userPosition == null) return "📍 Finding GPS...";
+
+    double uLat = _userPosition!.latitude;
+    double uLon = _userPosition!.longitude;
 
     double? lat = double.tryParse(gem['latitude']?.toString() ?? "");
     double? lon = double.tryParse(gem['longitude']?.toString() ?? "");
 
     if (lat == null || lon == null || (lat == 0.0 && lon == 0.0)) {
-      final textBlob = "${gem['name']} ${gem['address']} ${gem['city']}".toLowerCase();
-
-      if (textBlob.contains("naigaon")) {
-        lat = 19.3522;
-        lon = 72.8519;
-      } else if (textBlob.contains("babhola")) {
-        lat = 19.3789;
-        lon = 72.8214;
-      } else if (textBlob.contains("vasai")) {
-        lat = 19.3844;
-        lon = 72.8300;
-      } else if (textBlob.contains("virar")) {
-        lat = 19.4678;
-        lon = 72.8056;
-      } else if (textBlob.contains("mumbai")) {
-        lat = 18.9220;
-        lon = 72.8347;
-      } else if (textBlob.contains("dubai")) {
-        lat = 25.2048;
-        lon = 55.2708;
-      } else {
-        lat = uLat + 0.005;
-        lon = uLon + 0.005;
-      }
+      return "📍 Within Neighborhood";
     }
 
     final distanceMeters = Geolocator.distanceBetween(uLat, uLon, lat, lon);
+    final distanceKm = distanceMeters / 1000.0;
 
-    if (distanceMeters < 1000) {
+    if (distanceKm > 100) {
+      return "📍 ${distanceKm.toStringAsFixed(0)} km away";
+    } else if (distanceMeters < 1000) {
       return "📍 ${distanceMeters.round()}m away";
     } else {
-      return "📍 ${(distanceMeters / 1000).toStringAsFixed(1)} km away";
+      return "📍 ${distanceKm.toStringAsFixed(1)} km away";
     }
   }
 
-  Future<void> _handleUpvote(Map<String, dynamic> gem) async {
+  Future<void> _handleGemEndorsement(Map<String, dynamic> gem) async {
     final placeId = gem['id']?.toString();
     if (placeId == null) return;
 
     if (_upvotedGemIds.contains(placeId)) {
       HapticFeedback.lightImpact();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(backgroundColor: Color(0xFF475569), duration: Duration(seconds: 2), content: Text("You have already endorsed and upvoted this spot.")),
+        const SnackBar(backgroundColor: Color(0xFF475569), duration: Duration(seconds: 2), content: Text("You have already awarded a Gem 💎 to this spot.")),
       );
       return;
     }
 
     HapticFeedback.mediumImpact();
-    final currentUpvotes = (gem['upvotes'] as num?)?.toInt() ?? 0;
-    final newCount = currentUpvotes + 1;
+    final currentGems = (gem['upvotes'] as num?)?.toInt() ?? 0;
+    final newCount = currentGems + 1;
 
     setState(() {
       gem['upvotes'] = newCount;
@@ -711,11 +812,275 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_upvoteStorageKey, _upvotedGemIds.toList());
-    await SupabaseService.upvotePlace(placeId, currentUpvotes);
+    await SupabaseService.endorseGem(placeId, currentGems);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(backgroundColor: Color(0xFF16A34A), duration: Duration(seconds: 2), content: Text("✓ Recommendation verified & upvoted!")),
+      const SnackBar(backgroundColor: Color(0xFF16A34A), duration: Duration(seconds: 2), content: Text("✓ Gem awarded! Spot verified by community 💎")),
+    );
+  }
+
+  void _showDailyNoticeModal(Map<String, dynamic> gem) {
+    HapticFeedback.selectionClick();
+    final titleCtrl = TextEditingController(text: gem['daily_notice_title'] ?? "");
+    final contentCtrl = TextEditingController(text: gem['daily_notice_content'] ?? "");
+    String selectedTag = gem['daily_notice_tag'] ?? "Special";
+
+    final tags = ["Special", "Chef Special", "Offer / Discount", "Notice", "Fresh Batch", "Available Today"];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+        return StatefulBuilder(
+          builder: (ctx, setNoticeState) => Container(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, bottomInset + 20),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(10)))),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      const Icon(Icons.campaign_rounded, color: Color(0xFFD97706), size: 24),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Today's Special & Notice Board",
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16.5, color: Color(0xFF0F172A)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text("Post daily specials, fresh batches, or temporary announcements for ${gem['name']}.", style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                  const SizedBox(height: 14),
+                  const Text("Notice Tag", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    children: tags.map((t) {
+                      final isSelected = selectedTag == t;
+                      return ChoiceChip(
+                        label: Text(t, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFFFEF3C7),
+                        labelStyle: TextStyle(color: isSelected ? const Color(0xFF92400E) : const Color(0xFF334155)),
+                        onSelected: (val) => setNoticeState(() => selectedTag = t),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text("Headline / Special Title", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: InputDecoration(
+                      hintText: "e.g. Fresh Surmai Fry / Lunch Combo @ ₹180",
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text("Details & Timings (Expires in 24 hours)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: contentCtrl,
+                    maxLines: 2,
+                    maxLength: 140,
+                    decoration: InputDecoration(
+                      hintText: "e.g. Served fresh with solkadhi & rice until 4 PM. Call ahead to reserve.",
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      if ((gem['daily_notice_title'] ?? '').toString().isNotEmpty) ...[
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFDC2626),
+                            side: const BorderSide(color: Color(0xFFFCA5A5)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                          label: const Text("Clear Notice", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          onPressed: () async {
+                            final placeId = gem['id']?.toString() ?? "";
+                            setState(() {
+                              gem['daily_notice_title'] = null;
+                              gem['daily_notice_content'] = null;
+                              gem['daily_notice_tag'] = null;
+                            });
+                            Navigator.pop(ctx);
+                            await SupabaseService.clearDailyNotice(placeId);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(
+                        child: MetallicEmbossedButton(
+                          label: "PUBLISH TODAY'S NOTICE",
+                          icon: Icons.check_circle_rounded,
+                          variant: MetallicVariant.emeraldGreen,
+                          height: 44,
+                          fontSize: 12,
+                          isFullWidth: true,
+                          onPressed: () async {
+                            final title = titleCtrl.text.trim();
+                            final content = contentCtrl.text.trim();
+                            if (title.isEmpty) return;
+
+                            final placeId = gem['id']?.toString() ?? "";
+
+                            setState(() {
+                              gem['daily_notice_title'] = title;
+                              gem['daily_notice_content'] = content;
+                              gem['daily_notice_tag'] = selectedTag;
+                              gem['daily_notice_expires_at'] = DateTime.now().add(const Duration(hours: 24)).toIso8601String();
+                            });
+
+                            Navigator.pop(ctx);
+                            await SupabaseService.updateDailyNotice(
+                              placeId: placeId,
+                              title: title,
+                              content: content,
+                              tag: selectedTag,
+                            );
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(backgroundColor: Color(0xFF16A34A), content: Text("✓ Today's notice published to chalkboard!")),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDailyChalkboardCard(Map<String, dynamic> gem, bool canManage) {
+    final title = (gem['daily_notice_title'] ?? '').toString().trim();
+    final content = (gem['daily_notice_content'] ?? '').toString().trim();
+    final tag = (gem['daily_notice_tag'] ?? 'Special').toString();
+    final expiresIso = gem['daily_notice_expires_at']?.toString();
+
+    bool isExpired = false;
+    if (expiresIso != null && expiresIso.isNotEmpty) {
+      try {
+        final expiresAt = DateTime.parse(expiresIso);
+        if (DateTime.now().isAfter(expiresAt)) isExpired = true;
+      } catch (_) {}
+    }
+
+    if (title.isEmpty || isExpired) {
+      if (!canManage) return const SizedBox.shrink();
+      return Container(
+        margin: const EdgeInsets.only(top: 8, bottom: 4),
+        child: InkWell(
+          onTap: () => _showDailyNoticeModal(gem),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Row(
+              children: const [
+                Icon(Icons.add_alert_rounded, size: 14, color: Color(0xFFD97706)),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    "+ Post Today's Special / Notice",
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10, bottom: 4),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _showNoticeFlyerModal(gem, canManage),
+          child: Padding(
+            padding: const EdgeInsets.all(11),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        tag.toUpperCase(),
+                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Colors.black87),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text("TODAY'S SPECIAL", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFFFCD34D), letterSpacing: 0.5)),
+                    const Spacer(),
+                    const Icon(Icons.fullscreen_rounded, size: 16, color: Color(0xFF93C5FD)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white)),
+                if (content.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(content, style: const TextStyle(fontSize: 11.5, color: Color(0xFFCBD5E1), height: 1.3), maxLines: 2, overflow: TextOverflow.ellipsis),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -768,7 +1133,7 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                   const Text("Category", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
                   const SizedBox(height: 5),
                   DropdownButtonFormField<String>(
-                    value: _filterCategories.any((c) => c['label'] == category) && category != "All" ? category : "Pharmacy / Chemist",
+                    initialValue: _filterCategories.any((c) => c['label'] == category) && category != "All" ? category : "Pharmacy / Chemist",
                     isExpanded: true,
                     decoration: InputDecoration(
                       filled: true,
@@ -792,7 +1157,7 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text("Phone / WhatsApp Number", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
+                  const Text("Phone Number", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155))),
                   const SizedBox(height: 5),
                   TextField(
                     controller: phoneCtrl,
@@ -852,11 +1217,15 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                           'must_try_tip': updatedTip,
                         }).eq('id', gem['id']);
 
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(backgroundColor: Color(0xFF16A34A), content: Text("✓ Place details updated successfully!")),
-                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(backgroundColor: Color(0xFF16A34A), content: Text("✓ Place details updated successfully!")),
+                          );
+                        }
                       } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to update: $e")));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to update: $e")));
+                        }
                       }
                     },
                   ),
@@ -961,8 +1330,10 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                       onPressed: () async {
                         await SupabaseService.blockUser(_currentUserId!, peerId);
                         setState(() => _blockedUserIds.add(peerId));
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✓ User blocked. Messages hidden.")));
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✓ User blocked. Messages hidden.")));
+                        }
                       },
                     ),
                     IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(ctx)),
@@ -1022,7 +1393,7 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.04),
+                                    color: Colors.black.withValues(alpha: 0.04),
                                     blurRadius: 3,
                                     offset: const Offset(0, 1),
                                   ),
@@ -1092,9 +1463,11 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                         );
 
                         if (verdict['allowed'] != true) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(backgroundColor: const Color(0xFFDC2626), content: Text(verdict['reason'] ?? "Blocked")),
-                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(backgroundColor: const Color(0xFFDC2626), content: Text(verdict['reason'] ?? "Blocked")),
+                            );
+                          }
                           return;
                         }
 
@@ -1148,8 +1521,10 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
               onTap: () async {
                 await SupabaseService.blockUser(_currentUserId!, scoutId);
                 setState(() => _blockedUserIds.add(scoutId));
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✓ Scout blocked.")));
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✓ Scout blocked.")));
+                }
               },
             ),
             if (_isAdmin) ...[
@@ -1158,8 +1533,10 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                 title: const Text("Admin: Ban User Account", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                 onTap: () async {
                   await SupabaseService.banUser(scoutId, "Administrative safety ban");
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✓ User account banned.")));
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✓ User account banned.")));
+                  }
                 },
               ),
             ],
@@ -1247,6 +1624,7 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                               final msgId = msg['id']?.toString() ?? "";
                               final msgUserId = msg['user_id']?.toString() ?? "";
                               final sender = msg['user_name'] ?? "Explorer";
+                              final senderAvatar = msg['user_avatar_url'] as String?;
                               final text = msg['message'] ?? "";
                               final createdAt = msg['created_at'];
                               final isMe = msgUserId == _currentUserId;
@@ -1280,7 +1658,7 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.04),
+                                          color: Colors.black.withValues(alpha: 0.04),
                                           blurRadius: 3,
                                           offset: const Offset(0, 1),
                                         ),
@@ -1292,6 +1670,10 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
+                                            if (senderAvatar != null && senderAvatar.isNotEmpty) ...[
+                                              CircleAvatar(radius: 7, backgroundImage: NetworkImage(senderAvatar)),
+                                              const SizedBox(width: 4),
+                                            ],
                                             Text(
                                               sender,
                                               style: TextStyle(
@@ -1380,9 +1762,11 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                             );
 
                             if (verdict['allowed'] != true) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(backgroundColor: const Color(0xFFDC2626), content: Text(verdict['reason'] ?? "Blocked")),
-                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(backgroundColor: const Color(0xFFDC2626), content: Text(verdict['reason'] ?? "Blocked")),
+                                );
+                              }
                               return;
                             }
 
@@ -1454,7 +1838,7 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
               if (newText.isNotEmpty) {
                 await SupabaseService.client.from('community_place_messages').update({'message': newText}).eq('id', msgId);
               }
-              Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text("Save", style: TextStyle(color: Colors.white)),
           ),
@@ -1464,353 +1848,14 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
   }
 
   void _openCityPulseRoom() {
-    final TextEditingController pulseCtrl = TextEditingController();
-    final ScrollController scrollCtrl = ScrollController();
-    DateTime? lastBroadcastTyping;
-
-    void broadcastTyping() {
-      final now = DateTime.now();
-      if (lastBroadcastTyping == null || now.difference(lastBroadcastTyping!).inSeconds > 2) {
-        lastBroadcastTyping = now;
-        _presenceChannel?.sendBroadcastMessage(
-          event: 'typing',
-          payload: {
-            'user_id': _currentUserId,
-            'user_name': _currentUserName,
-          },
-        );
-      }
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
-            final keyboardPadding = MediaQuery.of(ctx).viewInsets.bottom;
-            final systemNavPadding = MediaQuery.of(ctx).padding.bottom;
-            final effectiveBottom = keyboardPadding > 0 ? keyboardPadding + 8 : systemNavPadding + 14;
-
-            final displayScouts = List<Map<String, dynamic>>.from(_activeScouts);
-            if (!displayScouts.any((s) => s['user_id'] == _currentUserId)) {
-              displayScouts.insert(0, {'user_id': _currentUserId, 'user_name': '$_currentUserName (You)'});
-            }
-
-            return SizedBox(
-              height: MediaQuery.of(context).size.height * 0.86,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, effectiveBottom),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 4,
-                        decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(4)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(color: Color(0xFFFEF3C7), shape: BoxShape.circle),
-                          child: const Icon(Icons.campaign_rounded, color: Color(0xFFD97706), size: 22),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "$_currentHubCity Community Pulse",
-                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5, color: Color(0xFF0F172A)),
-                              ),
-                              Row(
-                                children: [
-                                  Container(width: 7, height: 7, decoration: const BoxDecoration(color: Color(0xFF16A34A), shape: BoxShape.circle)),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    "${displayScouts.length} Active Now",
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(ctx)),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 32,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: displayScouts.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 6),
-                        itemBuilder: (context, idx) {
-                          final s = displayScouts[idx];
-                          final sName = s['user_name'] ?? 'Scout';
-                          final sId = s['user_id'] ?? '';
-                          final isMe = sId == _currentUserId;
-
-                          return InkWell(
-                            onTap: isMe ? null : () => _showScoutActionSheet(sId, sName),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isMe ? const Color(0xFFF1F5F9) : const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: isMe ? const Color(0xFFCBD5E1) : const Color(0xFFBFDBFE)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF16A34A), shape: BoxShape.circle)),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    sName,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: isMe ? const Color(0xFF475569) : const Color(0xFF1D4ED8),
-                                    ),
-                                  ),
-                                  if (!isMe) ...[
-                                    const SizedBox(width: 4),
-                                    const Icon(Icons.touch_app_rounded, size: 11, color: Color(0xFF2563EB)),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-
-                    const Divider(height: 16),
-
-                    Expanded(
-                      child: StreamBuilder<List<Map<String, dynamic>>>(
-                        stream: SupabaseService.streamCityPulse(_currentHubCity),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)));
-                          }
-                          final list = snapshot.data ?? [];
-                          final cleanList = list.where((m) => !_blockedUserIds.contains(m['user_id']?.toString())).toList();
-
-                          if (cleanList.isEmpty) {
-                            return Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(Icons.forum_outlined, size: 40, color: Color(0xFF94A3B8)),
-                                  SizedBox(height: 8),
-                                  Text("No updates yet in this city.", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                                  Text("Say hi or ask about local traffic & spots!", style: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8))),
-                                ],
-                              ),
-                            );
-                          }
-
-                          return ListView.separated(
-                            controller: scrollCtrl,
-                            itemCount: cleanList.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
-                            itemBuilder: (context, idx) {
-                              final item = cleanList[idx];
-                              final sender = item['user_name'] ?? "Local Scout";
-                              final senderId = item['user_id'] ?? "";
-                              final content = item['content'] ?? "";
-                              final createdAt = item['created_at'];
-                              final isMe = senderId == _currentUserId;
-
-                              return Align(
-                                alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                                child: Container(
-                                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
-                                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 7),
-                                  decoration: BoxDecoration(
-                                    color: isMe ? const Color(0xFF1E40AF) : const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: const Radius.circular(16),
-                                      topRight: const Radius.circular(16),
-                                      bottomLeft: Radius.circular(isMe ? 16 : 4),
-                                      bottomRight: Radius.circular(isMe ? 4 : 16),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.04),
-                                        blurRadius: 3,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                    children: [
-                                      if (!isMe) ...[
-                                        InkWell(
-                                          onTap: () => _showScoutActionSheet(senderId, sender),
-                                          child: Text(
-                                            sender,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 12.5,
-                                              color: Color(0xFF0D9488),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 3),
-                                      ],
-                                      Text(
-                                        content,
-                                        style: TextStyle(
-                                          fontSize: 15.2,
-                                          height: 1.35,
-                                          fontWeight: FontWeight.w400,
-                                          color: isMe ? Colors.white : const Color(0xFF111827),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            _formatRelativeTime(createdAt),
-                                            style: TextStyle(
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.w500,
-                                              color: isMe ? Colors.white70 : const Color(0xFF94A3B8),
-                                            ),
-                                          ),
-                                          if (isMe) ...[
-                                            const SizedBox(width: 4),
-                                            const Icon(Icons.done_all_rounded, size: 13, color: Colors.white70),
-                                          ],
-                                          if (_isAdmin) ...[
-                                            const SizedBox(width: 6),
-                                            InkWell(
-                                              onTap: () async {
-                                                await SupabaseService.client.from('community_city_pulse').delete().eq('id', item['id']);
-                                              },
-                                              child: Icon(Icons.delete_outline_rounded, size: 14, color: isMe ? Colors.white70 : const Color(0xFFDC2626)),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
-
-                    if (_remoteTypingUser != null) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4, bottom: 2, left: 4),
-                        child: Row(
-                          children: [
-                            const SizedBox(
-                              width: 10,
-                              height: 10,
-                              child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF2563EB)),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              "$_remoteTypingUser is typing...",
-                              style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFF64748B)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 6),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: pulseCtrl,
-                            style: const TextStyle(fontSize: 15.0, color: Color(0xFF0F172A)),
-                            onChanged: (val) {
-                              if (val.trim().isNotEmpty) {
-                                broadcastTyping();
-                              }
-                            },
-                            decoration: InputDecoration(
-                              hintText: "Post an update or tip (e.g. Ferry open till 7 PM...)",
-                              hintStyle: const TextStyle(fontSize: 13.5, color: Color(0xFF94A3B8)),
-                              filled: true,
-                              fillColor: const Color(0xFFF8FAFC),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.send_rounded, color: Color(0xFF2563EB)),
-                          onPressed: () async {
-                            final txt = pulseCtrl.text.trim();
-                            if (txt.isEmpty) return;
-
-                            if (!await _ensureTosAccepted()) return;
-
-                            final verdict = await SupabaseService.inspectWithOmniGuard(
-                              text: txt,
-                              userId: _currentUserId!,
-                              userName: _currentUserName,
-                              channelType: "pulse",
-                            );
-
-                            if (verdict['allowed'] != true) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(backgroundColor: const Color(0xFFDC2626), content: Text(verdict['reason'] ?? "Blocked")),
-                              );
-                              return;
-                            }
-
-                            HapticFeedback.lightImpact();
-                            pulseCtrl.clear();
-                            await SupabaseService.postCityPulse(
-                              city: _currentHubCity,
-                              userId: _currentUserId!,
-                              userName: _currentUserName,
-                              content: txt,
-                            );
-
-                            if (scrollCtrl.hasClients) {
-                              scrollCtrl.animateTo(
-                                0.0,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeOut,
-                              );
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => CommunityPulseChatScreen(
+          activeCity: _currentHubCity,
+          backendUrl: widget.backendUrl,
+        ),
+      ),
     );
   }
 
@@ -1849,33 +1894,13 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
     }
   }
 
-  void _bookmarkToMyTrip(Map<String, dynamic> gem) async {
-    HapticFeedback.mediumImpact();
-    final name = gem['name'] ?? "Local Spot";
-    final category = gem['category'] ?? "Community Gem";
-    final addr = gem['address'] ?? _currentHubCity;
-
-    await TripStateService.addItineraryItem(
-      name,
-      category,
-      "Community Gem • $addr",
-      scheduledDateTime: DateTime.now().add(const Duration(hours: 3)),
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: const Color(0xFF16A34A), content: Text("✓ Added '$name' to your Home Dashboard Schedule!"), duration: const Duration(seconds: 2)),
-      );
-    }
-  }
-
   void _showEndorseSheet(Map<String, dynamic> gem) {
     final availableTags = [
       "🕒 24 Hours",
-      "💳 UPI Accepted",
+      "💳 Card / Digital Pay",
       "🛵 Home Delivery",
       "❄️ AC Seating",
-      "🌿 Pure Veg",
+      "🌿 Vegetarian Friendly",
       "💰 Budget Friendly",
       "🅿️ Parking Available",
       "📶 Free Wi-Fi",
@@ -1955,7 +1980,7 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                     controller: tipController,
                     maxLength: 100,
                     decoration: InputDecoration(
-                      hintText: "e.g. Try the special seafood thali or 24/7 night counter",
+                      hintText: "e.g. Try the special regional house special or night counter",
                       hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
@@ -2005,9 +2030,11 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
                             .eq('id', gem['id']);
                       } catch (_) {}
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(backgroundColor: Color(0xFF16A34A), content: Text("✓ Endorsement recorded!")),
-                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(backgroundColor: Color(0xFF16A34A), content: Text("✓ Endorsement recorded!")),
+                        );
+                      }
                     },
                   ),
                 ],
@@ -2026,11 +2053,12 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
 
     final Uri mapUri;
     if (lat != null && lon != null && lat != 0.0 && lon != 0.0) {
-      mapUri = Uri.parse("google.navigation:q=$lat,$lon&mode=d");
+      mapUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lon&travelmode=driving");
     } else if (customUrl.isNotEmpty && customUrl.startsWith("http")) {
       mapUri = Uri.parse(customUrl);
     } else {
-      mapUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent('$placeName, $_currentHubCity')}");
+      final query = Uri.encodeComponent('$placeName, $_currentHubCity');
+      mapUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=$query");
     }
 
     try {
@@ -2109,678 +2137,436 @@ class _CommunityGemsScreenState extends State<CommunityGemsScreen> {
     return match["color"] as Color;
   }
 
-  Widget _buildCleanHeaderBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
+  Future<void> _contribute() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ContributePlaceScreen(
+          activeCity: _currentHubCity,
+          backendUrl: widget.backendUrl,
+        ),
+      ),
+    );
+    if (result == true) await _loadPlacesForCity(_currentHubCity);
+  }
+
+  List<Map<String, dynamic>> get _visiblePlaces {
+    final q = _searchQuery.toLowerCase().trim();
+    return _places.where((p) {
+      if (_selectedCategory != 'All') {
+        final category = '${p['category'] ?? ''}'.toLowerCase();
+        if (!category.contains(_selectedCategory.toLowerCase())) return false;
+      }
+      if (q.isEmpty) return true;
+      final haystack = [p['name'], p['address'], p['description'], p['category'], p['city'], p['must_try_tip']]
+          .map((v) => '$v'.toLowerCase()).join(' ');
+      return haystack.contains(q);
+    }).toList();
+  }
+
+  bool _isFoodPlace(Map<String, dynamic> place) {
+    final c = '${place['category'] ?? ''} ${place['subcategory'] ?? ''}'.toLowerCase();
+    return RegExp(r'food|restaurant|cafe|café|diner|seafood|bar|bakery|snack|chai|coffee|fast').hasMatch(c);
+  }
+
+  String? _providerUrlFor(Map<String, dynamic> place, String provider) {
+    final directKey = provider == 'Swiggy' ? 'swiggy_url' : 'zomato_url';
+    final direct = '${place[directKey] ?? ''}'.trim();
+    if (direct.isNotEmpty && direct != 'null') return direct;
+    final providers = place['providers'];
+    if (providers is Map) {
+      for (final key in [provider.toLowerCase(), provider]) {
+        final value = '${providers[key] ?? ''}'.trim();
+        if (value.isNotEmpty && value != 'null') return value;
+      }
+    }
+    if (providers is List) {
+      for (final item in providers) {
+        if (item is! Map) continue;
+        final n = '${item['provider'] ?? item['name'] ?? ''}'.toLowerCase();
+        if (n == provider.toLowerCase()) {
+          final value = '${item['url'] ?? item['link'] ?? ''}'.trim();
+          if (value.isNotEmpty && value != 'null') return value;
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<void> _openUrl(String url, String label) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open $label.')));
+    }
+  }
+
+  String _placeId(Map<String, dynamic> p) => [p['google_place_id'], p['id'], p['place_id'], p['name']]
+      .map((v) => '$v'.trim()).firstWhere((v) => v.isNotEmpty && v != 'null', orElse: () => '');
+
+  Widget _iconAction(IconData icon, String label, VoidCallback onTap, {Color color = const Color(0xFF2563EB)}) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2)),
-        ],
+        child: Container(
+          height: 66,
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.025), blurRadius: 5)]),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 4),
+            Text(label, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF334155))),
+          ]),
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.location_on_rounded, color: Color(0xFF2563EB), size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "$_currentHubCity Hub",
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: Color(0xFF0F172A)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  "${_places.length} Verified Spots • 🟢 ${_activeScouts.length + 1} Scouts Online",
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
-                ),
-              ],
-            ),
-          ),
-          InkWell(
-            onTap: _openCityPulseRoom,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFFDE68A)),
-              ),
-              child: Row(
-                children: const [
-                  Icon(Icons.forum_rounded, color: Color(0xFFD97706), size: 13),
-                  SizedBox(width: 4),
-                  Text("Pulse", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
-                ],
-              ),
-            ),
-          ),
-        ],
+    );
+  }
+
+  Widget _topShortcut(IconData icon, String label, VoidCallback onTap, {bool primary = false}) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(color: primary ? const Color(0xFFEFF6FF) : Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: primary ? const Color(0xFFBFDBFE) : const Color(0xFFE2E8F0))),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, color: const Color(0xFF2563EB), size: 23),
+            const SizedBox(height: 3),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.2, fontWeight: FontWeight.w800, color: Color(0xFF334155))),
+          ]),
+        ),
       ),
+    );
+  }
+
+  Widget _categoryChip(String label, IconData icon, bool selected) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(color: selected ? const Color(0xFF2563EB) : Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: selected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0))),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 16, color: selected ? Colors.white : const Color(0xFF2563EB)), const SizedBox(width: 6), Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: selected ? Colors.white : const Color(0xFF334155))) ]),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-
+    final places = _visiblePlaces;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        backgroundColor: const Color(0xFFF8FAFC),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A), size: 24),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text(
-          "Community Gems",
-          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: Color(0xFF0F172A)),
-        ),
-        actions: [
+      body: SafeArea(
+        child: Column(children: [
           Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: InkWell(
-              onTap: _openCityPulseRoom,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Stack(
-                      alignment: Alignment.topRight,
-                      children: [
-                        const Icon(Icons.campaign_rounded, color: Color(0xFFD97706), size: 16),
-                        Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF16A34A), shape: BoxShape.circle)),
-                      ],
-                    ),
-                    const SizedBox(width: 4),
-                    const Text("Pulse", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF92400E))),
-                  ],
-                ),
-              ),
-            ),
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+            child: Row(children: [
+              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A))),
+              const Icon(Icons.diamond_rounded, color: Color(0xFF2563EB), size: 25),
+              const SizedBox(width: 7),
+              const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Community Gems', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))), Text('Discover real places, local tips & community recommendations', style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B)))])),
+              InkWell(onTap: _showLanguageSelectorModal, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFBFDBFE))), child: Row(children: [const Icon(Icons.language_rounded, size: 17, color: Color(0xFF2563EB)), const SizedBox(width: 4), Text(_activeLanguage, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF1E40AF))), const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF2563EB))]))),
+            ]),
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: InkWell(
-              onTap: _showLanguageSelectorModal,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.language_rounded, color: Color(0xFF2563EB), size: 14),
-                    const SizedBox(width: 4),
-                    Text(_activeLanguage, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF1E40AF))),
-                    const Icon(Icons.arrow_drop_down, color: Color(0xFF2563EB), size: 14),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.fromLTRB(16, 8, 16, bottomInset > 0 ? bottomInset + 8 : 14),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-        ),
-        child: MetallicEmbossedButton(
-          label: _t("add_gem_btn").toUpperCase(),
-          icon: Icons.add_business_rounded,
-          variant: MetallicVariant.cobaltBlue,
-          height: 46,
-          fontSize: 12.5,
-          isFullWidth: true,
-          onPressed: () async {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (ctx) => ContributePlaceScreen(activeCity: _currentHubCity)),
-            );
-            if (result == true) _loadPlacesForCity(_currentHubCity);
-          },
-        ),
-      ),
-      body: Column(
-        children: [
-          _buildCleanHeaderBar(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-            child: TextField(
-              controller: _searchCtrl,
-              textInputAction: TextInputAction.search,
-              onSubmitted: _executeActiveSearch,
-              decoration: InputDecoration(
-                hintText: _t("search_hint"),
-                hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                prefixIcon: IconButton(
-                  icon: const Icon(Icons.search_rounded, color: Color(0xFF2563EB), size: 22),
-                  onPressed: () => _executeActiveSearch(_searchCtrl.text),
-                ),
-                suffixIcon: _searchCtrl.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 18, color: Colors.grey),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          _executeActiveSearch("");
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-              ),
-            ),
-          ),
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: _filterCategories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final item = _filterCategories[index];
-                final rawLabel = item["label"] as String;
-                final localizedLabel = _t(rawLabel);
-                final icon = item["icon"] as IconData;
-                final isSelected = rawLabel == _selectedCategory;
-
-                return ChoiceChip(
-                  avatar: Icon(icon, size: 15, color: isSelected ? Colors.white : item["color"] as Color),
-                  label: Text(
-                    localizedLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      color: isSelected ? Colors.white : const Color(0xFF334155),
-                    ),
-                  ),
-                  selected: isSelected,
-                  selectedColor: const Color(0xFF2563EB),
-                  backgroundColor: Colors.white,
-                  side: BorderSide(color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1)),
-                  onSelected: (selected) {
-                    if (selected) setState(() => _selectedCategory = rawLabel);
-                  },
-                );
-              },
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)))
-                : _filteredPlaces.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.storefront_outlined, size: 52, color: Colors.grey.shade400),
-                              const SizedBox(height: 12),
-                              Text(
-                                _searchQuery.isNotEmpty ? "No matching spots found for '$_searchQuery'" : "No neighborhood spots listed yet in $_currentHubCity",
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                              ),
-                              const SizedBox(height: 6),
-                              const Text("Be the first to list a barber, chemist, or food stall!", textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8))),
-                            ],
-                          ),
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          await _fetchUserLocation();
-                          await _loadPlacesForCity(_currentHubCity);
-                        },
-                        color: const Color(0xFF2563EB),
-                        child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
-                          itemCount: _filteredPlaces.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final gem = _filteredPlaces[index];
-                            final idStr = (gem['id'] ?? '').toString();
-                            final name = gem['name'] ?? 'Local Spot';
-                            final category = gem['category'] ?? 'General';
-                            final address = gem['address'] ?? '';
-                            final city = gem['city'] ?? _currentHubCity;
-                            final description = gem['description'] ?? '';
-                            final phone = (gem['contact_phone'] ?? '').toString().trim();
-                            final mapsUrl = (gem['maps_url'] ?? '').toString().trim();
-                            final contributor = gem['contributor_name'] ?? 'Local Resident';
-                            final upvotes = (gem['upvotes'] as num?)?.toInt() ?? 0;
-                            final originalTip = (gem['must_try_tip'] ?? '').toString().trim();
-                            final imageUrl = gem['image_url'] as String?;
-                            final lat = gem['latitude'];
-                            final lon = gem['longitude'];
-                            final createdBy = (gem['created_by_user_id'] ?? '').toString();
-
-                            final hasVoted = _upvotedGemIds.contains(idStr);
-                            final isTranslating = _translatingPlaceIds.contains(idStr);
-                            final displayTip = _translatedTips[idStr] ?? originalTip;
-                            final hasTranslated = _translatedTips.containsKey(idStr);
-
-                            final bool canManage = _isAdmin ||
-                                (_currentUserId != null &&
-                                    _currentUserId!.isNotEmpty &&
-                                    _currentUserId == createdBy);
-
-                            List<String> tags = [];
-                            if (gem['endorsement_tags'] is List) {
-                              tags = List<String>.from(gem['endorsement_tags']);
-                            }
-
-                            final accentColor = _getCategoryColor(category);
-                            final distanceStr = _calculateDistance(gem);
-
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.02),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (imageUrl != null && imageUrl.isNotEmpty) ...[
-                                    ClipRRect(
-                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                                      child: Image.network(
-                                        imageUrl,
-                                        height: 160,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                                      ),
-                                    ),
-                                  ],
-                                  Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(10),
-                                              decoration: BoxDecoration(
-                                                color: accentColor.withOpacity(0.12),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Icon(_getCategoryIcon(category), color: accentColor, size: 22),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    name,
-                                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Wrap(
-                                                    crossAxisAlignment: WrapCrossAlignment.center,
-                                                    spacing: 6,
-                                                    runSpacing: 4,
-                                                    children: [
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                                        decoration: BoxDecoration(color: accentColor.withOpacity(0.08), borderRadius: BorderRadius.circular(6)),
-                                                        child: Text(
-                                                          _t(category),
-                                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: accentColor),
-                                                        ),
-                                                      ),
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                        decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
-                                                        child: Text(
-                                                          city,
-                                                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
-                                                        ),
-                                                      ),
-                                                      if (distanceStr.isNotEmpty)
-                                                        Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                                          decoration: BoxDecoration(
-                                                            color: const Color(0xFFEFF6FF),
-                                                            borderRadius: BorderRadius.circular(6),
-                                                            border: Border.all(color: const Color(0xFFBFDBFE)),
-                                                          ),
-                                                          child: Text(
-                                                            distanceStr,
-                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1D4ED8)),
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                InkWell(
-                                                  borderRadius: BorderRadius.circular(20),
-                                                  onTap: () => _handleUpvote(gem),
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                                    decoration: BoxDecoration(
-                                                      color: hasVoted ? const Color(0xFF2563EB) : const Color(0xFFEFF6FF),
-                                                      borderRadius: BorderRadius.circular(20),
-                                                      border: Border.all(color: hasVoted ? const Color(0xFF1D4ED8) : const Color(0xFFBFDBFE)),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        Icon(Icons.thumb_up_rounded, size: 13, color: hasVoted ? Colors.white : const Color(0xFF2563EB)),
-                                                        const SizedBox(width: 5),
-                                                        Text(
-                                                          "$upvotes",
-                                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: hasVoted ? Colors.white : const Color(0xFF1E40AF)),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (canManage) ...[
-                                                  const SizedBox(width: 4),
-                                                  PopupMenuButton<String>(
-                                                    padding: EdgeInsets.zero,
-                                                    icon: const Icon(Icons.more_vert_rounded, size: 20, color: Color(0xFF64748B)),
-                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                                    onSelected: (val) {
-                                                      if (val == 'edit') {
-                                                        _showEditPlaceModal(gem);
-                                                      } else if (val == 'delete') {
-                                                        _deletePlaceListing(gem);
-                                                      }
-                                                    },
-                                                    itemBuilder: (ctx) => [
-                                                      PopupMenuItem(
-                                                        value: 'edit',
-                                                        child: Row(
-                                                          children: [
-                                                            const Icon(Icons.edit_rounded, color: Color(0xFF2563EB), size: 18),
-                                                            const SizedBox(width: 8),
-                                                            Text(_t("edit_gem"), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      PopupMenuItem(
-                                                        value: 'delete',
-                                                        child: Row(
-                                                          children: [
-                                                            const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626), size: 18),
-                                                            const SizedBox(width: 8),
-                                                            Text(_t("delete_gem"), style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 12.5)),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Icon(Icons.location_on_rounded, size: 15, color: Color(0xFF64748B)),
-                                            const SizedBox(width: 5),
-                                            Expanded(
-                                              child: Text(
-                                                address,
-                                                style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        if (tags.isNotEmpty) ...[
-                                          const SizedBox(height: 8),
-                                          Wrap(
-                                            spacing: 6,
-                                            runSpacing: 4,
-                                            children: tags.map((t) {
-                                              return Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFFE2E8F0))),
-                                                child: Text(t, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ],
-                                        if (displayTip.isNotEmpty) ...[
-                                          const SizedBox(height: 8),
-                                          Container(
-                                            width: double.infinity,
-                                            padding: const EdgeInsets.all(10),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFFEFCE8),
-                                              borderRadius: BorderRadius.circular(10),
-                                              border: Border.all(color: const Color(0xFFFEF08A)),
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    const Text("💡 ", style: TextStyle(fontSize: 13)),
-                                                    Expanded(
-                                                      child: Text(
-                                                        displayTip,
-                                                        style: const TextStyle(fontSize: 12, color: Color(0xFF854D0E), fontWeight: FontWeight.w600, height: 1.35),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 6),
-                                                Align(
-                                                  alignment: Alignment.centerRight,
-                                                  child: InkWell(
-                                                    onTap: isTranslating ? null : () => _translateTipInline(idStr, originalTip),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    child: Padding(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                      child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          if (isTranslating)
-                                                            const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFFB45309)))
-                                                          else
-                                                            Icon(hasTranslated ? Icons.undo_rounded : Icons.translate_rounded, size: 12, color: const Color(0xFFB45309)),
-                                                          const SizedBox(width: 4),
-                                                          Text(
-                                                            hasTranslated ? _t("show_original") : "${_t("translate")} ($_activeLanguage)",
-                                                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ] else if (description.isNotEmpty) ...[
-                                          const SizedBox(height: 8),
-                                          Container(
-                                            width: double.infinity,
-                                            padding: const EdgeInsets.all(9),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF8FAFC),
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(color: const Color(0xFFF1F5F9)),
-                                            ),
-                                            child: Text(
-                                              "“ $description",
-                                              style: const TextStyle(fontSize: 12, color: Color(0xFF334155), height: 1.3),
-                                            ),
-                                          ),
-                                        ],
-                                        const SizedBox(height: 10),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.person_outline_rounded, size: 13, color: Color(0xFF94A3B8)),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              "${_t("recommended_by")} $contributor",
-                                              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 12),
-                                        const Divider(height: 1),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          children: [
-                                            if (phone.isNotEmpty) ...[
-                                              InkWell(
-                                                onTap: () => _callPhone(phone),
-                                                borderRadius: BorderRadius.circular(10),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                                                  decoration: BoxDecoration(color: const Color(0xFFF0FDF4), border: Border.all(color: const Color(0xFFBBF7D0)), borderRadius: BorderRadius.circular(10)),
-                                                  child: Row(
-                                                    children: const [
-                                                      Icon(Icons.call_rounded, size: 14, color: Color(0xFF16A34A)),
-                                                      SizedBox(width: 3),
-                                                      Text("Call", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              InkWell(
-                                                onTap: () => _launchWhatsApp(phone, name),
-                                                borderRadius: BorderRadius.circular(10),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                                                  decoration: BoxDecoration(color: const Color(0xFFECFDF5), border: Border.all(color: const Color(0xFFA7F3D0)), borderRadius: BorderRadius.circular(10)),
-                                                  child: Row(
-                                                    children: const [
-                                                      Icon(Icons.chat_bubble_rounded, size: 13, color: Color(0xFF059669)),
-                                                      SizedBox(width: 3),
-                                                      Text("WhatsApp", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                            ],
-                                            InkWell(
-                                              onTap: () => _showAskLocalsModal(gem),
-                                              borderRadius: BorderRadius.circular(10),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                                                decoration: BoxDecoration(color: const Color(0xFFEFF6FF), border: Border.all(color: const Color(0xFFBFDBFE)), borderRadius: BorderRadius.circular(10)),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(Icons.forum_rounded, size: 13, color: Color(0xFF2563EB)),
-                                                    const SizedBox(width: 3),
-                                                    Text(_t("ask_locals"), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            const Spacer(),
-                                            InkWell(
-                                              onTap: () => _bookmarkToMyTrip(gem),
-                                              borderRadius: BorderRadius.circular(10),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                                                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
-                                                child: Row(
-                                                  children: const [
-                                                    Icon(Icons.bookmark_add_rounded, color: Color(0xFF334155), size: 14),
-                                                    SizedBox(width: 3),
-                                                    Text("+ My Trip", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: MetallicEmbossedButton(
-                                                label: _t("endorse_btn").toUpperCase(),
-                                                icon: Icons.star_rounded,
-                                                variant: MetallicVariant.titaniumSilver,
-                                                height: 40,
-                                                fontSize: 11.5,
-                                                onPressed: () => _showEndorseSheet(gem),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: MetallicEmbossedButton(
-                                                label: _t("navigate_btn").toUpperCase(),
-                                                icon: Icons.navigation_rounded,
-                                                variant: MetallicVariant.cobaltBlue,
-                                                height: 40,
-                                                fontSize: 11.5,
-                                                onPressed: () => _launchMaps(mapsUrl, name, lat, lon),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-          ),
-        ],
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: Row(children: [
+            _topShortcut(Icons.explore_rounded, 'Live View', _openCityPulseRoom), const SizedBox(width: 7),
+            _topShortcut(Icons.location_on_rounded, 'Nearby', () { setState(() => _selectedCategory = 'All'); _fetchUserLocation(); }), const SizedBox(width: 7),
+            _topShortcut(Icons.add_rounded, 'Add Gem', _contribute, primary: true), const SizedBox(width: 7),
+            _topShortcut(Icons.bookmark_rounded, 'Saved', () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved places are available on each gem.'))); }), const SizedBox(width: 7),
+            _topShortcut(Icons.forum_rounded, 'Community Chat', _openCityPulseRoom),
+          ])),
+          const SizedBox(height: 10),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: TextField(
+            controller: _searchCtrl,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: _executeActiveSearch,
+            decoration: InputDecoration(hintText: 'Search places, food, pharmacy, salons...', prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF2563EB)), suffixIcon: IconButton(onPressed: () => _executeActiveSearch(_searchCtrl.text), icon: const Icon(Icons.tune_rounded, color: Color(0xFF475569))), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: Color(0xFFE2E8F0))), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: Color(0xFFE2E8F0)))) ,
+          )),
+          const SizedBox(height: 8),
+          SizedBox(height: 43, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 14), children: [
+            GestureDetector(onTap: () { setState(() => _selectedCategory = 'All'); _loadPlacesForCity(_currentHubCity); }, child: _categoryChip('All', Icons.grid_view_rounded, _selectedCategory == 'All')), const SizedBox(width: 7),
+            ...[('Food', Icons.restaurant_rounded), ('Pharmacy', Icons.local_pharmacy_rounded), ('Shopping', Icons.shopping_bag_rounded), ('Stay', Icons.hotel_rounded)].map((e) => Padding(padding: const EdgeInsets.only(right: 7), child: GestureDetector(onTap: () { setState(() => _selectedCategory = e.$1); _loadPlacesForCity(_currentHubCity); }, child: _categoryChip(e.$1, e.$2, _selectedCategory == e.$1)))),
+          ])),
+          const SizedBox(height: 8),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: Row(children: [
+            const Icon(Icons.location_on_rounded, color: Color(0xFF2563EB), size: 21), const SizedBox(width: 4), Text(_currentHubCity, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))), const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF2563EB)),
+            const Spacer(), Text('${places.length} Gems', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF334155))), const SizedBox(width: 7), Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF16A34A), shape: BoxShape.circle)), const SizedBox(width: 4), Text('${_activeScouts.length + 1} Scouts Live', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF16A34A))),
+          ])),
+          const SizedBox(height: 7),
+          Expanded(child: RefreshIndicator(onRefresh: () => _loadPlacesForCity(_currentHubCity), child: ListView(padding: const EdgeInsets.fromLTRB(14, 0, 14, 24), children: [
+            if (_isLoading) const Padding(padding: EdgeInsets.all(45), child: Center(child: CircularProgressIndicator(color: Color(0xFF2563EB))))
+            else if (places.isEmpty) _emptyCommunityState()
+            else ...places.map(_placeListCard),
+          ]))),
+        ]),
       ),
     );
   }
+
+  Widget _emptyCommunityState() => Container(margin: const EdgeInsets.only(top: 30), padding: const EdgeInsets.all(28), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE2E8F0))), child: Column(children: [const Icon(Icons.search_off_rounded, size: 45, color: Color(0xFF94A3B8)), const SizedBox(height: 10), const Text('No real places found', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)), const SizedBox(height: 5), const Text('Try another search or add a genuine local gem.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF64748B))), const SizedBox(height: 14), ElevatedButton.icon(onPressed: _contribute, icon: const Icon(Icons.add), label: const Text('Add Gem'))]));
+
+  Widget _placeListCard(Map<String, dynamic> gem) {
+    final name = '${gem['name'] ?? 'Local Place'}';
+    final category = '${gem['category'] ?? 'Local Place'}';
+    final image = '${gem['image_url'] ?? gem['photo_url'] ?? ''}'.trim();
+    final rating = gem['rating'];
+    final reviews = gem['review_count'] ?? gem['reviews_count'];
+    final gems = (gem['community_endorsements'] ?? gem['upvotes'] ?? 0) is num ? ((gem['community_endorsements'] ?? gem['upvotes'] ?? 0) as num).toInt() : 0;
+    final noticeTitle = '${gem['daily_notice_title'] ?? gem['community_notice'] ?? ''}'.trim();
+    final noticeContent = '${gem['daily_notice_content'] ?? ''}'.trim();
+    final distance = _calculateDistance(gem).replaceFirst('📍 ', '');
+    final savedKey = _placeId(gem);
+    return Container(margin: const EdgeInsets.only(bottom: 13), padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE2E8F0)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.035), blurRadius: 8, offset: const Offset(0, 2))]), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        ClipRRect(borderRadius: BorderRadius.circular(13), child: SizedBox(width: 128, height: 126, child: image.isNotEmpty ? Image.network(image, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _photoFallback()) : _photoFallback())),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [Expanded(child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)))), Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5), decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFBFDBFE))), child: Text('💎 $gems Gems', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF1E40AF))))]),
+          const SizedBox(height: 6), _smallTag(category), const SizedBox(height: 6),
+          Row(children: [const Icon(Icons.star_rounded, size: 17, color: Color(0xFFF59E0B)), Text(rating == null ? ' New' : ' ${rating.toString()}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5)), if (reviews != null) Text(' (${reviews.toString()})', style: const TextStyle(color: Color(0xFF64748B), fontSize: 10.5)), const SizedBox(width: 8), const Icon(Icons.location_on_rounded, size: 15, color: Color(0xFF2563EB)), Text(distance, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 10.5, color: Color(0xFF2563EB)))]),
+          const SizedBox(height: 5), Text('${gem['description'] ?? gem['must_try_tip'] ?? 'Community-recommended local place.'}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.8, color: Color(0xFF475569), height: 1.25)),
+        ])),
+      ]),
+      if (noticeTitle.isNotEmpty) Container(margin: const EdgeInsets.only(top: 8), padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7), decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFFDE68A))), child: Row(children: [const Icon(Icons.campaign_rounded, size: 16, color: Color(0xFFD97706)), const SizedBox(width: 5), Expanded(child: Text('TODAY: $noticeTitle${noticeContent.isNotEmpty ? ' — $noticeContent' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.2, fontWeight: FontWeight.w800, color: Color(0xFF92400E))))])),
+      const SizedBox(height: 9),
+      Row(children: [Expanded(child: _outlineButton(Icons.visibility_rounded, 'Explore', () => Navigator.push(context, MaterialPageRoute(builder: (_) => CommunityGemDetailScreen(gem: gem, activeCity: _currentHubCity, backendUrl: widget.backendUrl, language: _activeLanguage, onGemAwarded: () => _handleGemEndorsement(gem), onAskLocals: () => _showAskLocalsModal(gem), onNotice: () => _showDailyNoticeModal(gem)))))), const SizedBox(width: 7), Expanded(child: _outlineButton(Icons.navigation_rounded, 'Navigate', () => _launchMaps('${gem['maps_url'] ?? ''}', name, gem['latitude'], gem['longitude'],))),]),
+    ]));
+  }
+
+  Widget _photoFallback() => Container(color: const Color(0xFFEAF0F6), child: const Center(child: Icon(Icons.image_outlined, size: 36, color: Color(0xFF94A3B8))));
+  Widget _smallTag(String text) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5), decoration: BoxDecoration(color: const Color(0xFFFDF2F8), borderRadius: BorderRadius.circular(8)), child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFFBE185D))));
+  Widget _outlineButton(IconData icon, String label, VoidCallback onTap) => InkWell(onTap: onTap, borderRadius: BorderRadius.circular(12), child: Container(height: 40, decoration: BoxDecoration(color: label == 'Explore' ? const Color(0xFF2563EB) : Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF2563EB))), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 16, color: label == 'Explore' ? Colors.white : const Color(0xFF2563EB)), const SizedBox(width: 5), Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: label == 'Explore' ? Colors.white : const Color(0xFF2563EB)))])));
+}
+
+class CommunityGemDetailScreen extends StatefulWidget {
+  final Map<String, dynamic> gem;
+  final String activeCity;
+  final String backendUrl;
+  final String language;
+  final VoidCallback? onGemAwarded;
+  final VoidCallback? onAskLocals;
+  final VoidCallback? onNotice;
+  const CommunityGemDetailScreen({super.key, required this.gem, required this.activeCity, required this.backendUrl, required this.language, this.onGemAwarded, this.onAskLocals, this.onNotice});
+  @override State<CommunityGemDetailScreen> createState() => _CommunityGemDetailScreenState();
+}
+
+class _CommunityGemDetailScreenState extends State<CommunityGemDetailScreen> {
+  late Map<String, dynamic> gem;
+  bool saved = false;
+  late String detailLanguage;
+  @override void initState() { super.initState(); gem = Map<String, dynamic>.from(widget.gem); detailLanguage = widget.language; }
+
+  bool get isFood { final c='${gem['category'] ?? ''} ${gem['subcategory'] ?? ''}'.toLowerCase(); return RegExp(r'food|restaurant|cafe|café|diner|seafood|bar|bakery|snack|chai|coffee|fast').hasMatch(c); }
+  int get gems { final v=gem['community_endorsements'] ?? gem['upvotes'] ?? 0; return v is num ? v.toInt() : int.tryParse('$v') ?? 0; }
+  String _distance() {
+    final d=gem['_distance_km']; if(d is num) return '${d.toStringAsFixed(d < 1 ? 2 : 1)} km'; return '—';
+  }
+  String _cityCenterDistance() {
+    final lat = double.tryParse('${gem['latitude'] ?? ''}');
+    final lng = double.tryParse('${gem['longitude'] ?? ''}');
+    if (lat == null || lng == null) return '—';
+    final center = TripStateService.getDestinationCoordinates(widget.activeCity.toLowerCase());
+    final cLat = (center['lat'] as num?)?.toDouble();
+    final cLng = (center['lon'] as num?)?.toDouble();
+    if (cLat == null || cLng == null) return '—';
+    final meters = Geolocator.distanceBetween(lat, lng, cLat, cLng);
+    return meters < 1000 ? '${meters.round()} m' : '${(meters / 1000).toStringAsFixed(1)} km';
+  }
+  Future<void> _translateTo(String language) async {
+    final source = '${gem['local_name'] ?? gem['name'] ?? ''}'.trim();
+    if (source.isEmpty) return;
+    try {
+      final cleanUrl = widget.backendUrl.replaceAll(RegExp(r'/+$'), '');
+      final res = await http.post(Uri.parse('$cleanUrl/api/v1/chat'), headers: {'Content-Type':'application/json'}, body: jsonEncode({'message':'Translate this place name accurately into $language. Output only the translation: "$source"','target_language':language})).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final d=jsonDecode(res.body); final translated='${d['reply'] ?? d['answer'] ?? ''}'.trim();
+        if (translated.isNotEmpty && mounted) setState(() { gem['translated_name']=translated; detailLanguage=language; });
+      }
+    } catch (_) {}
+  }
+  void _chooseLanguage() {
+    const langs=['English','Marathi','Hindi','Gujarati','Tamil','Telugu','Kannada','Malayalam','Bengali','Punjabi','Arabic','French','Spanish','German'];
+    showModalBottomSheet(context:context,builder:(ctx)=>SafeArea(child:ListView(children:langs.map((l)=>ListTile(title:Text(l),trailing:detailLanguage==l?const Icon(Icons.check,color:Color(0xFF2563EB)):null,onTap:(){Navigator.pop(ctx);_translateTo(l);})).toList())));
+  }
+  String? _provider(String p) { final k=p=='Swiggy'?'swiggy_url':'zomato_url'; final direct='${gem[k] ?? ''}'.trim(); if(direct.isNotEmpty && direct!='null') return direct; final providers=gem['providers']; if(providers is Map){ for(final key in [p.toLowerCase(),p]){final v='${providers[key] ?? ''}'.trim(); if(v.isNotEmpty && v!='null') return v;}} return null; }
+  Future<void> _open(String url,String label) async { final u=Uri.tryParse(url); if(u!=null && (u.scheme=='http'||u.scheme=='https') && await canLaunchUrl(u)) await launchUrl(u,mode:LaunchMode.externalApplication); }
+  Future<void> _navigate() async { final u='${gem['maps_url'] ?? ''}'.trim(); if(u.isNotEmpty){await _open(u,'Maps'); return;} final lat=gem['latitude']; final lng=gem['longitude']; final name='${gem['name'] ?? ''}'; final address='${gem['address'] ?? ''}'; final q=(lat!=null&&lng!=null)?'$lat,$lng':'$name, $address'; final uri=Uri.https('www.google.com','/maps/search/',{'api':'1','query':q}); if(await canLaunchUrl(uri)) await launchUrl(uri,mode:LaunchMode.externalApplication); }
+  Future<void> _call() async { final phone='${gem['contact_phone'] ?? gem['phone'] ?? ''}'.trim(); if(phone.isEmpty)return; final u=Uri.parse('tel:${phone.replaceAll(RegExp(r'[^0-9+]'), '')}'); if(await canLaunchUrl(u)) await launchUrl(u); }
+  Future<void> _whatsapp() async { final phone='${gem['contact_phone'] ?? gem['phone'] ?? ''}'.replaceAll(RegExp(r'[^0-9]'), ''); if(phone.isEmpty)return; final u=Uri.parse('https://wa.me/$phone'); if(await canLaunchUrl(u)) await launchUrl(u,mode:LaunchMode.externalApplication); }
+  void _awardGem() { widget.onGemAwarded?.call(); }
+  void _askAbout() { widget.onAskLocals?.call(); }
+
+  @override Widget build(BuildContext context) {
+    final name='${gem['name'] ?? 'Local Place'}'; final image='${gem['image_url'] ?? gem['photo_url'] ?? ''}'.trim(); final category='${gem['category'] ?? 'Local Place'}'; final address='${gem['address'] ?? ''}'.trim(); final phone='${gem['contact_phone'] ?? gem['phone'] ?? ''}'.trim(); final rating=gem['rating']; final reviews=gem['review_count'] ?? gem['reviews_count']; final notice='${gem['daily_notice_title'] ?? gem['community_notice'] ?? ''}'.trim(); final noticeContent='${gem['daily_notice_content'] ?? ''}'.trim(); final swiggy=isFood?_provider('Swiggy'):null; final zomato=isFood?_provider('Zomato'):null;
+    return Scaffold(backgroundColor:const Color(0xFFF8FAFC),body:SafeArea(child:Column(children:[
+      Expanded(child:ListView(padding:EdgeInsets.zero,children:[
+        Stack(children:[SizedBox(height:230,width:double.infinity,child:image.isNotEmpty?Image.network(image,fit:BoxFit.cover,errorBuilder:(_,__,___)=>Container(color:const Color(0xFFE2E8F0),child:const Icon(Icons.image_outlined,size:50))):Container(color:const Color(0xFFE2E8F0),child:const Icon(Icons.image_outlined,size:50))),Positioned(top:12,left:12,child:_circle(Icons.arrow_back_rounded,()=>Navigator.pop(context))),Positioned(top:12,right:12,child:Row(children:[_circle(Icons.share_rounded,(){}),const SizedBox(width:7),_circle(saved?Icons.bookmark_rounded:Icons.bookmark_border_rounded,()=>setState(()=>saved=!saved))])),Positioned(bottom:12,right:12,child:Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:5),decoration:BoxDecoration(color:Colors.black54,borderRadius:BorderRadius.circular(15)),child:const Text('Photo',style:TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w800))))]),
+        Container(padding:const EdgeInsets.fromLTRB(16,14,16,22),decoration:const BoxDecoration(color:Colors.white,borderRadius:BorderRadius.vertical(top:Radius.circular(22))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Row(crossAxisAlignment:CrossAxisAlignment.start,children:[Expanded(child:Text(name,style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900,color:Color(0xFF0F172A)))),Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:8),decoration:BoxDecoration(color:const Color(0xFFEFF6FF),borderRadius:BorderRadius.circular(18),border:Border.all(color:const Color(0xFFBFDBFE))),child:Text('💎 $gems Gems',style:const TextStyle(fontWeight:FontWeight.w900,color:Color(0xFF1E40AF))))]),
+          const SizedBox(height:7),_smallTag(category),const SizedBox(height:7),Row(children:[const Icon(Icons.star_rounded,color:Color(0xFFF59E0B),size:21),Text(rating==null?' New':' ${rating.toString()}',style:const TextStyle(fontWeight:FontWeight.w900,fontSize:13)),if(reviews!=null)Text(' (${reviews.toString()} reviews)',style:const TextStyle(color:Color(0xFF64748B),fontSize:11.5))]),
+          if(notice.isNotEmpty) ...[const SizedBox(height:12),Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:const Color(0xFFFFFBEB),borderRadius:BorderRadius.circular(14),border:Border.all(color:const Color(0xFFFDE68A))),child:Row(children:[const Icon(Icons.campaign_rounded,color:Color(0xFFD97706),size:25),const SizedBox(width:9),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text("TODAY'S SPECIAL / NOTICE",style:TextStyle(fontSize:10,fontWeight:FontWeight.w900,color:Color(0xFF92400E))),const SizedBox(height:2),Text(notice,style:const TextStyle(fontSize:13,fontWeight:FontWeight.w900,color:Color(0xFF451A03))),if(noticeContent.isNotEmpty)Text(noticeContent,style:const TextStyle(fontSize:11,color:Color(0xFF78350F)))]))]))],
+          const SizedBox(height:12),Row(children:[_detailAction(Icons.call_rounded,'Call',_call,Color(0xFF16A34A)),const SizedBox(width:7),_detailAction(Icons.chat_rounded,'WhatsApp',_whatsapp,Color(0xFF16A34A)),const SizedBox(width:7),_detailAction(Icons.navigation_rounded,'Navigate',_navigate,Color(0xFF2563EB)),const SizedBox(width:7),_detailAction(Icons.bookmark_rounded,'Save',()=>setState(()=>saved=!saved)),const SizedBox(width:7),_detailAction(Icons.diamond_rounded,'Gems',_awardGem,Color(0xFF2563EB)),]),
+          const SizedBox(height:13),_infoBlock(Icons.location_on_rounded,address.isEmpty?'Address not available':address),
+          const SizedBox(height:9),Row(children:[Expanded(child:_metric(Icons.my_location_rounded,_distance(),'from your location')),Expanded(child:_metric(Icons.location_city_rounded,_cityCenterDistance(),'from city center'))]),
+          const SizedBox(height:13),if(address.isNotEmpty)Container(height:85,decoration:BoxDecoration(color:const Color(0xFFEFF6FF),borderRadius:BorderRadius.circular(14)),child:Row(children:[const Padding(padding:EdgeInsets.all(14),child:Icon(Icons.map_rounded,color:Color(0xFF2563EB),size:32)),Expanded(child:Text(address,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11,fontWeight:FontWeight.w700,color:Color(0xFF334155)))),TextButton(onPressed:_navigate,child:const Text('View on Map'))])),
+          const SizedBox(height:13),_translationSection(name),
+          const SizedBox(height:13),_amenities(gem),
+          if(isFood && (swiggy!=null||zomato!=null)) ...[const SizedBox(height:13),_ordering(swiggy,zomato)],
+          const SizedBox(height:13),_noticeAction(notice),
+          const SizedBox(height:13),_communityInsights(gem),
+          const SizedBox(height:13),_askPanel(name),
+          if(phone.isNotEmpty)Padding(padding:const EdgeInsets.only(top:12),child:Text('Phone: $phone',style:const TextStyle(fontSize:11,color:Color(0xFF64748B))),),
+        ]),),
+      ])),
+    ])));
+  }
+
+  Widget _circle(IconData icon,VoidCallback onTap)=>Material(color:Colors.white.withOpacity(.95),shape:const CircleBorder(),child:InkWell(onTap:onTap,customBorder:const CircleBorder(),child:Padding(padding:const EdgeInsets.all(10),child:Icon(icon,color:const Color(0xFF0F172A),size:21))));
+  Widget _smallTag(String text)=>Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:5),decoration:BoxDecoration(color:const Color(0xFFFDF2F8),borderRadius:BorderRadius.circular(8)),child:Text(text,style:const TextStyle(fontSize:10.5,fontWeight:FontWeight.w800,color:Color(0xFFBE185D))));
+  Widget _detailAction(IconData icon,String label,VoidCallback onTap,[Color color=const Color(0xFF2563EB)])=>Expanded(child:InkWell(onTap:onTap,borderRadius:BorderRadius.circular(12),child:Container(height:62,decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(12),border:Border.all(color:const Color(0xFFE2E8F0))),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(icon,color:color,size:23),const SizedBox(height:3),Text(label,style:const TextStyle(fontSize:9.5,fontWeight:FontWeight.w800))]))));
+  Widget _infoBlock(IconData icon,String text)=>Row(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(icon,color:const Color(0xFF2563EB),size:23),const SizedBox(width:9),Expanded(child:Text(text,style:const TextStyle(fontSize:12,color:Color(0xFF334155),height:1.35,fontWeight:FontWeight.w600)))]);
+  Widget _metric(IconData icon, String big, String small) => Container(
+    margin: const EdgeInsets.only(right: 8),
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12)),
+    child: Row(children: [
+      Icon(icon, color: const Color(0xFF2563EB), size: 20),
+      const SizedBox(width: 7),
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(big, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+        Text(small, style: const TextStyle(color: Color(0xFF64748B), fontSize: 9.5)),
+      ]),
+    ]),
+  );
+  Widget _translationSection(String name) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
+    child: Row(children: [
+      const Icon(Icons.translate_rounded, color: Color(0xFF2563EB), size: 25),
+      const SizedBox(width: 9),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Local Name (${gem['local_language'] ?? 'Original'})', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+        Text('${gem['local_name'] ?? name}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 3),
+        Text('Translation: ${gem['translated_name'] ?? name}', style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+      ])),
+      InkWell(onTap: _chooseLanguage, borderRadius: BorderRadius.circular(18), child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(16)),
+        child: Row(children: [
+          const Icon(Icons.language_rounded, size: 15, color: Color(0xFF2563EB)),
+          const SizedBox(width: 4),
+          Text(detailLanguage, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF1E40AF))),
+          const Icon(Icons.keyboard_arrow_down_rounded, size: 15, color: Color(0xFF2563EB)),
+        ]),
+      )),
+    ]),
+  );
+
+  Widget _amenities(Map<String, dynamic> p) {
+    final raw = p['tags'] ?? p['amenities'] ?? p['endorsement_tags'];
+    final tags = <String>[];
+    if (raw is List) tags.addAll(raw.map((e) => '$e'));
+    if (tags.isEmpty) {
+      for (final k in ['free_wifi', 'card_upi', 'budget_friendly', 'family_friendly', 'indoor_seating', 'takeaway']) {
+        if (p[k] == true) {
+          tags.add(k.replaceAll('_', ' ').split(' ').map((x) => x.isEmpty ? x : x[0].toUpperCase() + x.substring(1)).join(' '));
+        }
+      }
+    }
+    if (tags.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Amenities & Tags', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+      const SizedBox(height: 8),
+      Wrap(spacing: 7, runSpacing: 7, children: tags.take(10).map((t) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(16)),
+        child: Text(t.replaceAll('🕒 ', '').replaceAll('💳 ', '').replaceAll('💰 ', '').replaceAll('🛵 ', ''), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+      )).toList()),
+    ]);
+  }
+
+  Widget _ordering(String? swiggy, String? zomato) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('🍽 Order Online (if available)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+      const SizedBox(height: 8),
+      Row(children: [
+        if (zomato != null) Expanded(child: OutlinedButton.icon(onPressed: () => _open(zomato, 'Zomato'), icon: const Icon(Icons.restaurant_rounded, color: Color(0xFFEF4444)), label: const Text('Order on Zomato', style: TextStyle(color: Color(0xFFDC2626), fontSize: 10, fontWeight: FontWeight.w800)))),
+        if (zomato != null && swiggy != null) const SizedBox(width: 7),
+        if (swiggy != null) Expanded(child: OutlinedButton.icon(onPressed: () => _open(swiggy, 'Swiggy'), icon: const Icon(Icons.delivery_dining_rounded, color: Color(0xFFF97316)), label: const Text('Order on Swiggy', style: TextStyle(color: Color(0xFFEA580C), fontSize: 10, fontWeight: FontWeight.w800)))),
+      ]),
+    ]),
+  );
+
+  Widget _noticeAction(String notice) => InkWell(
+    onTap: widget.onNotice,
+    borderRadius: BorderRadius.circular(13),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(13), border: Border.all(color: const Color(0xFFFDE68A))),
+      child: Row(children: [
+        const Icon(Icons.campaign_rounded, size: 18, color: Color(0xFFD97706)),
+        const SizedBox(width: 7),
+        Expanded(child: Text(notice.isEmpty ? '+ Post Today’s Special / Notice' : 'Edit Today’s Special / Notice', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF92400E)))),
+        const Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFFD97706)),
+      ]),
+    ),
+  );
+
+  Widget _communityInsights(Map<String, dynamic> p) {
+    final n = p['community_endorsements'] ?? p['upvotes'] ?? 0;
+    final tip = '${p['must_try_tip'] ?? ''}'.trim();
+    final love = '${p['community_love'] ?? p['endorsement_summary'] ?? p['community_notice'] ?? ''}'.trim();
+    if ('$n' == '0' && tip.isEmpty && love.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Text('Community Insights', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+        const SizedBox(width: 6),
+        Text('💎 $n endorsements', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF1E40AF))),
+        const Spacer(),
+        const Text('See All', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF2563EB))),
+      ]),
+      const SizedBox(height: 8),
+      Row(children: [
+        if (love.isNotEmpty) Expanded(child: _insight(Icons.thumb_up_alt_rounded, 'What locals love', love, const Color(0xFFDCFCE7), const Color(0xFF166534))),
+        if (love.isNotEmpty && tip.isNotEmpty) const SizedBox(width: 8),
+        if (tip.isNotEmpty) Expanded(child: _insight(Icons.favorite_rounded, 'Must try', tip, const Color(0xFFFCE7F3), const Color(0xFFBE185D))),
+      ]),
+    ]);
+  }
+
+  Widget _insight(IconData icon, String title, String text, Color bg, Color fg) => Container(
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, color: fg, size: 19),
+      const SizedBox(height: 4),
+      Text(title, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: fg)),
+      const SizedBox(height: 3),
+      Text(text, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.2, height: 1.25, color: Color(0xFF334155))),
+    ]),
+  );
+
+  Widget _askPanel(String name) => InkWell(
+    onTap: _askAbout,
+    borderRadius: BorderRadius.circular(16),
+    child: Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF60A5FA))),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.all(9), decoration: const BoxDecoration(color: Color(0xFFDBEAFE), shape: BoxShape.circle), child: const Icon(Icons.groups_rounded, color: Color(0xFF2563EB))),
+        const SizedBox(width: 9),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Row(children: [Text('Ask About This Place', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)), SizedBox(width: 5), Text('Beta', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Color(0xFF2563EB)))]),
+          Text('Get local tips, timings, best information and more', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+          const SizedBox(height: 7),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Row(children: [
+            Expanded(child: Text('Ask about $name...', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8))),),
+            const Icon(Icons.send_rounded, color: Color(0xFF2563EB), size: 19),
+          ])),
+        ])),
+      ]),
+    ),
+  );
 }
